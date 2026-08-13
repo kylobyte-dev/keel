@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/runtime" },
+    { "path": "./packages/http" },
+    { "path": "./packages/sse" }
+  ]
+}

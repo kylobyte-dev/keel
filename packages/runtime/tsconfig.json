@@ -1,0 +1,9 @@
+{
+  "extends": "@keel/tsconfig/tsconfig.main.json",
+  "include": ["./src/**/*.ts"],
+  "exclude": ["./src/**/*.test.ts"],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["node"]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@keel/tsconfig",
+  "version": "0.1.0",
+  "description": "Shared TypeScript configuration for keel-based projects",
+  "license": "MIT",
+  "files": [
+    "tsconfig.main.json"
+  ]
+}

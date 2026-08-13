@@ -1,0 +1,38 @@
+{
+  "name": "@keel/sse",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Server-sent events handler for keel-based Fastify + Effect apps",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "prepare": "tsc -b",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.tests.json"
+  },
+  "peerDependencies": {
+    "@keel/http": "^0.1.0",
+    "effect": "^3.20.0",
+    "fastify": "^5.7.2"
+  },
+  "devDependencies": {
+    "@keel/http": "file:../http",
+    "@keel/runtime": "file:../runtime",
+    "@keel/tsconfig": "file:../tsconfig",
+    "@types/node": "^22.9.0",
+    "effect": "^3.20.0",
+    "fastify": "^5.7.2",
+    "pino-pretty": "^13.1.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}
