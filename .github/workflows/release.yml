@@ -50,9 +50,10 @@ jobs:
             exit 1
           fi
 
-      # Access and provenance come from publishConfig in package.json.
+      # `--provenance` lives here rather than in publishConfig: it is a CI-only
+      # capability, and in publishConfig it would break publishing by hand.
       # NODE_AUTH_TOKEN is only needed until a trusted publisher is configured
       # for the package: after that, delete the secret and OIDC takes over.
-      - run: npm publish
+      - run: npm publish --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
