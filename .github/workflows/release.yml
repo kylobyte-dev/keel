@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required for npm provenance: GitHub signs an attestation binding the
-      # tarball to this commit and this workflow run.
+      # Required both for npm provenance and for trusted publishing (OIDC):
+      # GitHub mints the token npm exchanges with the registry.
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -20,11 +20,17 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
+      # No `registry-url`: it would write an .npmrc with an _authToken placeholder,
+      # and trusted publishing needs no token at all.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
+
+      # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
+      # publishing yet (pnpm/pnpm#9812), and the npm shipped with Node 22 predates
+      # OIDC support.
+      - run: npm install --global npm@^12
 
       - run: pnpm install --frozen-lockfile
 
@@ -44,6 +50,10 @@ jobs:
             exit 1
           fi
 
-      - run: pnpm publish --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No token: the package has a trusted publisher configured for this
+      # repository and this workflow, so npm authenticates with the OIDC token
+      # minted by `id-token: write` above.
+      #
+      # `--provenance` lives here rather than in publishConfig because it is a
+      # CI-only capability: in publishConfig it would break publishing by hand.
+      - run: npm publish --provenance

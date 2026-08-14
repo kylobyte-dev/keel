@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 22 is what reach and nexus-server run, 24 is legion's floor.
+        # Both versions the consuming services run on.
         node: [22, 24]
     steps:
       - uses: actions/checkout@v4
