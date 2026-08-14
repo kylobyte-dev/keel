@@ -79,9 +79,9 @@ const scalarCspDirectives = () => ({
  * ```ts
  * // server/plugins/openapi.global.ts
  * export default openapiPlugin({
- *   info: { title: "Reach API", version: "1.0.0" },
+ *   info: { title: "Example API", version: "1.0.0" },
  *   tags,
- *   servers: [{ description: "Local server", url: "https://api.reach.internal" }],
+ *   servers: [{ description: "Local server", url: "https://api.example.internal" }],
  *   skipList: [/^docs\//],
  * });
  * ```

@@ -3,10 +3,8 @@
 Opinionated Fastify 5 + Effect backend framework — Effect Schema as type provider,
 controllers as Effect services, tagged errors mapped to HTTP, Pino↔Effect logging, SSE.
 
-Extracted from the three apps that had been carrying the same micro-framework by
-copy-paste: [`nexus-server`](https://github.com/kylobyte-dev/nexus-server),
-[`reach`](https://github.com/kylobyte-dev/reach) and `legion`. Keel holds the glue
-only — no business logic, no application runtime.
+Keel is glue only: no business logic, no application runtime. Your app builds its
+own `ManagedRuntime` and hands it over.
 
 ## Install
 
