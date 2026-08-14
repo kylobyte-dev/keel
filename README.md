@@ -10,12 +10,12 @@ only — no business logic, no application runtime.
 
 ## Packages
 
-| Package          | What's in it                                                                                  |
-| ---------------- | --------------------------------------------------------------------------------------------- |
-| `@keel/tsconfig` | The shared `tsconfig.main.json`                                                               |
+| Package          | What's in it                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------- |
+| `@keel/tsconfig` | The shared `tsconfig.main.json`                                                                   |
 | `@keel/runtime`  | Pino↔Effect logger bridge (`pinoInstance`, `PinoLogger`), `memoizedConfig`, `readonly`/`voidMemo` |
-| `@keel/http`     | Schema type provider, `controller()`, routers, response/error types, Fastify plugins           |
-| `@keel/sse`      | `createSseHandlerFactory` — server-sent events bound to an app runtime                        |
+| `@keel/http`     | Schema type provider, `controller()`, routers, response/error types, Fastify plugins              |
+| `@keel/sse`      | `createSseHandlerFactory` — server-sent events bound to an app runtime                            |
 
 ## Install
 
@@ -100,14 +100,17 @@ interface HttpClientExtraStatuses extends ExtraStatusProvider {
       : never;
 }
 
-export const { router } = createKeelWith<HttpClientExtraStatuses>()(AppRuntime, {
-  errorMappers: [
-    (error) =>
-      isHttpClientError(error)
-        ? { statusCode: 502, body: { message: "Bad Gateway" } }
-        : undefined,
-  ],
-});
+export const { router } = createKeelWith<HttpClientExtraStatuses>()(
+  AppRuntime,
+  {
+    errorMappers: [
+      (error) =>
+        isHttpClientError(error)
+          ? { statusCode: 502, body: { message: "Bad Gateway" } }
+          : undefined,
+    ],
+  },
+);
 ```
 
 The provider makes `502` a required key of the response schema of every route whose
