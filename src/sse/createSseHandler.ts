@@ -1,4 +1,4 @@
-import { isHttpError } from "@keel/http";
+import { isHttpError } from "../http/index.ts";
 import { Cause, Effect, Exit, Fiber, type ManagedRuntime } from "effect";
 import type { FastifyReply, FastifyRequest } from "fastify";
 

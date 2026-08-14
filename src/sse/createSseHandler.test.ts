@@ -1,4 +1,4 @@
-import { NotFoundError } from "@keel/http";
+import { NotFoundError } from "../http/index.ts";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";

@@ -22,12 +22,6 @@ export {
 
 export { effectProviderPlugin } from "./plugins/effect.ts";
 export { errorHandlerPlugin } from "./plugins/errors.ts";
-export { openapiPlugin } from "./plugins/openapi.ts";
-export type {
-  OpenapiPluginOptions,
-  OpenapiTagDefs,
-} from "./plugins/openapi.ts";
-export { createOpenapiMetaPlugin } from "./plugins/openapiMeta.ts";
 
 export {
   BadRequestError,

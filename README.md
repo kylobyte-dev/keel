@@ -8,50 +8,28 @@ copy-paste: [`nexus-server`](https://github.com/kylobyte-dev/nexus-server),
 [`reach`](https://github.com/kylobyte-dev/reach) and `legion`. Keel holds the glue
 only — no business logic, no application runtime.
 
-## Packages
-
-| Package          | What's in it                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------- |
-| `@keel/tsconfig` | The shared `tsconfig.main.json`                                                                   |
-| `@keel/runtime`  | Pino↔Effect logger bridge (`pinoInstance`, `PinoLogger`), `memoizedConfig`, `readonly`/`voidMemo` |
-| `@keel/http`     | Schema type provider, `controller()`, routers, response/error types, Fastify plugins              |
-| `@keel/sse`      | `createSseHandlerFactory` — server-sent events bound to an app runtime                            |
-
 ## Install
 
-Keel is consumed as a git dependency pinned to a tag, one entry per package:
-
-```json
-{
-  "dependencies": {
-    "@keel/http": "github:kylobyte-dev/keel#v0.1.0&path:/packages/http",
-    "@keel/runtime": "github:kylobyte-dev/keel#v0.1.0&path:/packages/runtime",
-    "@keel/sse": "github:kylobyte-dev/keel#v0.1.0&path:/packages/sse"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@keel/http", "@keel/runtime", "@keel/sse"]
-  }
-}
+```bash
+pnpm add @kylobyte/keel
 ```
 
-Two things are load-bearing here:
+One package, one version. Entry points:
 
-- **Every package you use must be listed**, even the ones you never import directly:
-  keel's packages depend on each other through `peerDependencies`, so pnpm resolves
-  `@keel/runtime` from _your_ dependency graph. One copy of the logger, one copy of
-  `effect`, one set of `Context.Tag` identities.
-- **`onlyBuiltDependencies`** — pnpm 10 refuses to run a git dependency's build script
-  unless it is allow-listed, and keel compiles itself at install time (`prepare`).
+| Import                              | What's in it                                                                       |
+| ----------------------------------- | ---------------------------------------------------------------------------------- |
+| `@kylobyte/keel`                    | The common surface: everything from `/http` plus `/runtime`                        |
+| `@kylobyte/keel/http`               | Schema type provider, `controller()`, routers, response/error types                |
+| `@kylobyte/keel/runtime`            | Pino↔Effect logger, `memoizedConfig`, `readonly`/`voidMemo`                        |
+| `@kylobyte/keel/sse`                | `createSseHandlerFactory`                                                          |
+| `@kylobyte/keel/openapi`            | `openapiPlugin`, `createOpenapiMetaPlugin`                                         |
+| `@kylobyte/keel/tsconfig.main.json` | The shared TypeScript config: `{ "extends": "@kylobyte/keel/tsconfig.main.json" }` |
 
-`@keel/tsconfig` goes in `devDependencies` (no build script, no allow-list needed):
-
-```json
-{ "extends": "@keel/tsconfig/tsconfig.main.json" }
-```
-
-`effect`, `fastify`, `pino`, `pino-pretty` and the `@fastify/*` plugins are peer
-dependencies — never dependencies. Two instances of `effect` in one process break
-`Context.Tag` identity.
+`effect`, `fastify`, `pino`, `pino-pretty` and the `@fastify/*` plugins are **peer
+dependencies**, never dependencies: two instances of `effect` in one process break
+`Context.Tag` identity. `helmet`, `@fastify/helmet` and
+`@scalar/fastify-api-reference` are optional peers — you only need them if you
+import `/openapi`.
 
 ## Bootstrap
 
@@ -61,8 +39,8 @@ runtime's context flows into every controller's requirements from there.
 
 ```ts
 // shared/app/keel.ts
-import { createKeel } from "@keel/http";
-import { createSseHandlerFactory } from "@keel/sse";
+import { createKeel } from "@kylobyte/keel";
+import { createSseHandlerFactory } from "@kylobyte/keel/sse";
 import { AppRuntime } from "./effect/runtime.ts";
 
 export const { router, createRouter, createRouterWithErrors } =
@@ -73,7 +51,7 @@ export const createSseHandler = createSseHandlerFactory(AppRuntime);
 
 ```ts
 // modules/people/people.router.ts
-import { errorsSchemas } from "@keel/http";
+import { errorsSchemas } from "@kylobyte/keel";
 import { router } from "../../shared/app/keel.ts";
 import { getPerson } from "./people.controller.ts";
 
@@ -85,6 +63,9 @@ export default router(async (app, createRoute) => {
   );
 });
 ```
+
+A controller whose requirements the runtime cannot satisfy is a compile error at the
+route definition — that inference is the point of the whole design.
 
 ### App-specific statuses
 
@@ -120,22 +101,20 @@ runtime behaviour.
 ## Development
 
 ```bash
-pnpm install
-pnpm build   # turbo build + check-types (tsc -b, project references)
-pnpm test    # vitest
+pnpm install       # `prepare` compiles the package
+pnpm check-types   # tsc over sources and tests
+pnpm test          # vitest
+pnpm pack          # what would actually ship
 ```
-
-Internal cross-package links use `file:../<package>` in `devDependencies` (npm
-understands it, so it also works when pnpm builds the package from git) plus tsconfig
-`paths` pointing at the sibling's `dist`, so `tsc -b` always type-checks against
-freshly built declarations.
 
 ## Releasing
 
-Tag the commit; consumers move at their own pace:
+Bump `version` in `package.json`, then tag:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-Consumers switch to a registry later without touching a single import.
+The Release workflow refuses to publish when the tag and `package.json` disagree,
+then publishes from CI with npm provenance — the tarball carries a signed
+attestation binding it to the commit and the workflow run that produced it.

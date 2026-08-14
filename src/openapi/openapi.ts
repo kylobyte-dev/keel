@@ -4,7 +4,7 @@ import FastifyScalarUi from "@scalar/fastify-api-reference";
 import { type FastifyInstance } from "fastify";
 import fp from "fastify-plugin";
 import helmet from "helmet";
-import { jsonSchemaTransform } from "../typeProvider.ts";
+import { jsonSchemaTransform } from "../http/typeProvider.ts";
 
 /** Shape of an app's OpenAPI tag catalogue (`openapi/tags.ts`). */
 export type OpenapiTagDefs = Record<

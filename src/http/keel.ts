@@ -1,4 +1,4 @@
-import { PinoLogger, readonly } from "@keel/runtime";
+import { PinoLogger, readonly } from "../runtime/index.ts";
 import {
   Cause,
   Effect,

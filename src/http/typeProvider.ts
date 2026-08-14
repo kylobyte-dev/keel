@@ -1,5 +1,5 @@
 import type { SwaggerTransform } from "@fastify/swagger";
-import { pinoInstance } from "@keel/runtime";
+import { pinoInstance } from "../runtime/index.ts";
 import { Either, JSONSchema, ParseResult, Schema as S } from "effect";
 import {
   errorCodes,

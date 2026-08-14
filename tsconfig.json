@@ -1,8 +1,8 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./packages/runtime" },
-    { "path": "./packages/http" },
-    { "path": "./packages/sse" }
-  ]
+  "extends": "./tsconfig.main.json",
+  "include": ["./src/**/*.ts"],
+  "exclude": ["./src/**/*.test.ts"],
+  "compilerOptions": {
+    "types": ["node"]
+  }
 }

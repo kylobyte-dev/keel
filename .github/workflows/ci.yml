@@ -9,9 +9,6 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  TURBO_TELEMETRY_DISABLED: 1
-
 jobs:
   build:
     name: build & test (node ${{ matrix.node }})
@@ -32,13 +29,15 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
 
-      # `prepare` compiles every package here (tsc -b over the project references),
-      # so a broken build fails at this step.
+      # `prepare` compiles the package here, so a broken build fails at this step.
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm build
+      - run: pnpm check-types
 
       - run: pnpm test
+
+      # What would actually ship: fails if dist or the shared tsconfig went missing.
+      - run: pnpm pack --dry-run
 
   format:
     name: format
