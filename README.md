@@ -107,12 +107,22 @@ pnpm pack          # what would actually ship
 
 ## Releasing
 
-Bump `version` in `package.json`, then tag:
+Bump `version` in `package.json`, merge, then tag:
 
 ```bash
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.1.2 && git push origin v0.1.2
 ```
 
 The Release workflow refuses to publish when the tag and `package.json` disagree,
-then publishes from CI with npm provenance — the tarball carries a signed
-attestation binding it to the commit and the workflow run that produced it.
+then publishes with npm provenance — the tarball carries a signed attestation
+binding it to the commit and the workflow run that produced it.
+
+There is no npm token anywhere: the package is configured with a **trusted
+publisher** (`kylobyte-dev/keel`, workflow `release.yml`, no environment) and the
+workflow authenticates with the OIDC token minted by `id-token: write`. Two
+consequences worth knowing before changing anything here:
+
+- renaming `release.yml`, or adding an `environment:` to the publish job, breaks
+  the match and the publish is rejected — update the trusted publisher first;
+- publishing by hand still works (`npm publish`, which will ask for your 2FA
+  code) but produces no provenance, since only CI can generate the attestation.
