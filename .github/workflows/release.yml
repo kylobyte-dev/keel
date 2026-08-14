@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # Required for npm provenance: GitHub signs an attestation binding the
-      # tarball to this commit and this workflow run.
+      # Required both for npm provenance and for trusted publishing (OIDC):
+      # GitHub mints the token npm exchanges with the registry.
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +25,12 @@ jobs:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
+      # publishing yet (pnpm/pnpm#9812), and the npm shipped with Node 22 is too
+      # old for it. Installing a current npm keeps the switch away from
+      # NPM_TOKEN a settings-only change, with no edit to this workflow.
+      - run: npm install --global npm@^12
 
       - run: pnpm install --frozen-lockfile
 
@@ -44,6 +50,9 @@ jobs:
             exit 1
           fi
 
-      - run: pnpm publish --no-git-checks
+      # Access and provenance come from publishConfig in package.json.
+      # NODE_AUTH_TOKEN is only needed until a trusted publisher is configured
+      # for the package: after that, delete the secret and OIDC takes over.
+      - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
