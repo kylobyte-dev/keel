@@ -31,9 +31,27 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
-      # publishing yet (pnpm/pnpm#9812), and the npm shipped with Node 22 predates
-      # OIDC support.
-      - run: npm install --global npm@^12
+      # publishing yet (pnpm/pnpm#9812). The registry OIDC exchange needs
+      # npm >= 11.5.1, and the npm shipped with Node 22 predates it — so assert
+      # the version instead of trusting that the global install landed in PATH.
+      # Provenance signing works on far older npm, which is why a signed
+      # attestation in the log is no evidence that authentication was attempted.
+      - name: Install an npm that can authenticate via OIDC
+        run: |
+          npm install --global npm@^12
+          version="$(npm --version)"
+          echo "npm $version at $(which npm), registry $(npm config get registry)"
+          node --eval '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            const supported =
+              major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+            if (!supported) {
+              console.error(
+                `npm ${process.argv[1]} cannot authenticate via OIDC: trusted publishing needs >= 11.5.1`,
+              );
+              process.exit(1);
+            }
+          ' "$version"
 
       - run: pnpm install --frozen-lockfile
 
