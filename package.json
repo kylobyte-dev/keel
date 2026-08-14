@@ -52,10 +52,10 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist && tsc",
     "check-types": "tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
-    "prepare": "tsc",
+    "prepare": "rm -rf dist && tsc",
     "format": "prettier --write ."
   },
   "peerDependencies": {
