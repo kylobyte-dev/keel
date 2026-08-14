@@ -20,15 +20,10 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      # `registry-url` is required even with trusted publishing: it writes the
-      # .npmrc that points npm at the registry, and without it npm never attempts
-      # the OIDC exchange — it just reports ENEEDAUTH. The `_authToken` line it
-      # leaves behind resolves to nothing, which is expected and harmless.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://registry.npmjs.org
 
       # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
       # publishing yet (pnpm/pnpm#9812). The registry OIDC exchange needs
@@ -52,6 +47,18 @@ jobs:
               process.exit(1);
             }
           ' "$version"
+
+      # npm needs the registry configured to attempt the OIDC exchange — without
+      # any .npmrc it reports ENEEDAUTH without trying. But `setup-node`'s
+      # `registry-url` also writes `_authToken=${NODE_AUTH_TOKEN}`, and with no
+      # token in the environment that leaves an *empty* credential configured,
+      # which npm appears to send instead of exchanging the OIDC token (the
+      # registry then answers 404 on the PUT). So write the registry line and
+      # nothing else.
+      - name: Point npm at the registry, with no credential configured
+        run: |
+          echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
+          cat "$HOME/.npmrc"
 
       - run: pnpm install --frozen-lockfile
 
@@ -77,4 +84,8 @@ jobs:
       #
       # `--provenance` lives here rather than in publishConfig because it is a
       # CI-only capability: in publishConfig it would break publishing by hand.
-      - run: npm publish --provenance
+      # Verbose so the log shows whether npm requests an OIDC token exchange at
+      # all (`POST /-/npm/v1/oidc/token/exchange`). If that request is missing,
+      # the problem is on this side; if it is rejected, it is the trusted
+      # publisher configuration on the package.
+      - run: npm publish --provenance --loglevel verbose
