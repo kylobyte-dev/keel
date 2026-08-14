@@ -20,12 +20,15 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
 
-      # No `registry-url`: it would write an .npmrc with an _authToken placeholder,
-      # and trusted publishing needs no token at all.
+      # `registry-url` is required even with trusted publishing: it writes the
+      # .npmrc that points npm at the registry, and without it npm never attempts
+      # the OIDC exchange — it just reports ENEEDAUTH. The `_authToken` line it
+      # leaves behind resolves to nothing, which is expected and harmless.
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://registry.npmjs.org
 
       # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
       # publishing yet (pnpm/pnpm#9812), and the npm shipped with Node 22 predates
