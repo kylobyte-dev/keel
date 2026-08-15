@@ -121,9 +121,11 @@ If the push is what fails, the version is already on the registry and immutable:
 push the release commit and its tag by hand instead of releasing again.
 
 There is no npm token anywhere: the package is configured with a **trusted
-publisher** (`kylobyte-dev/keel`, workflow `release.yml`, no environment) and the
-workflow authenticates with the OIDC token minted by `id-token: write`. Two
-consequences worth knowing before changing anything here:
+publisher** and the workflow authenticates with the OIDC token minted by
+`id-token: write`. The configuration on npm must match what the workflow claims —
+organization `kylobyte-dev` (the GitHub org, not the npm scope), repository
+`keel`, workflow `release.yml`, no environment. Two consequences worth knowing
+before changing anything here:
 
 - renaming `release.yml`, or adding an `environment:` to the publish job, breaks
   the match and the publish is rejected — update the trusted publisher first;
