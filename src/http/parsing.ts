@@ -6,6 +6,25 @@ export const HttpErrorSchema = S.Struct({
 });
 
 /**
+ * A `bigint` identifier that travels as a string.
+ *
+ * JSON has no integer wide enough for a 64-bit key, so the wire format is a
+ * string; the annotation keeps the OpenAPI document saying so, which it would
+ * otherwise not, having only the decoded `bigint` to describe. Applies to any
+ * `bigint` key — a Snowflake, a `bigserial` — and an app keyed by `uuid` or
+ * `text` uses `S.UUID` or `S.String` instead.
+ */
+export const BigIntIdSchema = S.BigInt.pipe(
+  S.annotations({
+    description: "A 64-bit identifier",
+    jsonSchema: {
+      type: "string",
+      description: "A 64-bit identifier, encoded as a string",
+    },
+  }),
+);
+
+/**
  * Wraps a schema in `S.parseJson` and overrides its OpenAPI representation with
  * the actual object schema instead of `{ type: "string" }`.
  *

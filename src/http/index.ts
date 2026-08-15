@@ -14,6 +14,7 @@ export type {
 } from "./keel.ts";
 
 export {
+  BigIntIdSchema,
   errorSchemasDescriptions,
   errorsSchemas,
   HttpErrorSchema,

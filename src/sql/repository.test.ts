@@ -1,6 +1,6 @@
 import { Context, Effect } from "effect";
 import { eq } from "drizzle-orm";
-import { bigint, PgDialect, pgTable, text } from "drizzle-orm/pg-core";
+import { bigint, PgDialect, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import { createSql } from "./repository.ts";
 import type { SqlExecutor } from "./executor.ts";
@@ -160,6 +160,30 @@ describe("buildRepository", () => {
 
     expect(calls[0]).toMatchObject({ operation: "delete", table: users });
     expect(toSql(calls[0]!.where)).toBe(toSql(eq(users.id, 1n)));
+  });
+});
+
+describe("buildRepository id formats", () => {
+  it("keys on whatever type the table's id column is", () => {
+    const sessions = pgTable("sessions", {
+      id: uuid().primaryKey(),
+      token: text().notNull(),
+    });
+
+    const { executor, calls } = makeFakeExecutor([]);
+
+    runWith(
+      executor,
+      Effect.gen(function* () {
+        const repository = yield* buildRepository(sessions);
+
+        return yield* repository.delete("0b3f0e60-0f2a-4f1e-9a9a-2f0d9a3c0a11");
+      }),
+    );
+
+    expect(toSql(calls[0]!.where)).toBe(
+      toSql(eq(sessions.id, "0b3f0e60-0f2a-4f1e-9a9a-2f0d9a3c0a11")),
+    );
   });
 });
 
