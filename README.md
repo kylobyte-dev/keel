@@ -104,34 +104,3 @@ pnpm check-types   # tsc over sources and tests
 pnpm test          # vitest
 pnpm pack          # what would actually ship
 ```
-
-## Releasing
-
-Releases are a button, not a checklist: **Actions → Release → Run workflow**, with
-`patch`, `minor`, `major` (or an explicit `1.2.3`) as the input.
-
-The workflow computes the new version with `npm version` — nobody types a number,
-so `package.json` and the tag cannot disagree. Order matters and is deliberate:
-install, type-check and tests run first, then the version is bumped and tagged
-**locally**, then the package is published, and only a successful publish pushes
-the commit and the tag to `main`. A rejected publish therefore leaves the branch
-exactly as it was.
-
-If the push is what fails, the version is already on the registry and immutable:
-push the release commit and its tag by hand instead of releasing again.
-
-There is no npm token anywhere: the package is configured with a **trusted
-publisher** and the workflow authenticates with the OIDC token minted by
-`id-token: write`. The configuration on npm must match what the workflow claims —
-organization `kylobyte-dev` (the GitHub org, not the npm scope), repository
-`keel`, workflow `release.yml`, no environment. Two consequences worth knowing
-before changing anything here:
-
-- renaming `release.yml`, or adding an `environment:` to the publish job, breaks
-  the match and the publish is rejected — update the trusted publisher first;
-- publishing by hand still works (`npm publish`, which will ask for your 2FA
-  code) but produces no provenance, since only CI can generate the attestation.
-
-The release job pushes to `main` as `github-actions[bot]`. If `main` is protected,
-that push needs to be allowed for the bot, or the last step will fail after a
-successful publish.

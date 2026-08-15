@@ -2,6 +2,18 @@ name: Release
 
 # Manual only: the workflow owns the whole release — it bumps the version,
 # publishes, and only then writes the commit and the tag to main.
+#
+# There is no npm token anywhere. The package is published through a trusted
+# publisher, whose configuration on npm must match what this workflow claims:
+#
+#   organization  kylobyte-dev   <- the GitHub org, NOT the npm scope (@kylobyte)
+#   repository    keel
+#   workflow      release.yml
+#   environment   (empty)
+#
+# npm answers `package not found` when any of those disagree, which reads as if
+# the package were missing rather than as a configuration mismatch. Renaming this
+# file, or adding an `environment:` to the job, means updating npm first.
 on:
   workflow_dispatch:
     inputs:
