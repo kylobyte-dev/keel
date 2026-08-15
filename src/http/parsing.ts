@@ -1,9 +1,34 @@
-import { Schema as S } from "effect";
+import { JSONSchema, Schema as S } from "effect";
 import type { HttpError } from "./response/errors.ts";
 
 export const HttpErrorSchema = S.Struct({
   message: S.String,
 });
+
+/**
+ * Wraps a schema in `S.parseJson` and overrides its OpenAPI representation with
+ * the actual object schema instead of `{ type: "string" }`.
+ *
+ * Use this for JSON-encoded query string parameters so Fastify validates the
+ * decoded value with Effect Schema while the OpenAPI document still shows the
+ * full structure to the reader.
+ *
+ * @param schema - The schema describing the decoded value.
+ * @returns A schema that parses a JSON string and documents itself as the object.
+ *
+ * @example
+ * ```ts
+ * // GET /users?filter={"role":"admin"}
+ * export const UserQuerySchema = S.Struct({
+ *   ...tableQueryFields,
+ *   filter: S.optional(parseJsonParam(UserFilterSchema)),
+ * });
+ * ```
+ */
+export const parseJsonParam = <A, I>(schema: S.Schema<A, I, never>) =>
+  S.parseJson(schema).pipe(
+    S.annotations({ jsonSchema: JSONSchema.make(schema) }),
+  );
 
 /** Reason phrases used as the OpenAPI description of each error response. */
 export const errorSchemasDescriptions: Record<

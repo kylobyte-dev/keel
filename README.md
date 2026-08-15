@@ -20,6 +20,7 @@ One package, one version. Entry points:
 | `@kylobyte/keel/http`               | Schema type provider, `controller()`, routers, response/error types                |
 | `@kylobyte/keel/runtime`            | Pino↔Effect logger, `memoizedConfig`, `readonly`/`voidMemo`                        |
 | `@kylobyte/keel/sse`                | `createSseHandlerFactory`                                                          |
+| `@kylobyte/keel/sql`                | `createSql`, filters, table query params, `paginate`                               |
 | `@kylobyte/keel/openapi`            | `openapiPlugin`, `createOpenapiMetaPlugin`                                         |
 | `@kylobyte/keel/tsconfig.main.json` | The shared TypeScript config: `{ "extends": "@kylobyte/keel/tsconfig.main.json" }` |
 
@@ -27,7 +28,13 @@ One package, one version. Entry points:
 dependencies**, never dependencies: two instances of `effect` in one process break
 `Context.Tag` identity. `helmet`, `@fastify/helmet` and
 `@scalar/fastify-api-reference` are optional peers — you only need them if you
-import `/openapi`.
+import `/openapi`; `drizzle-orm`, `@effect/sql` and `@effect/sql-pg` are optional
+peers for `/sql`.
+
+`/sql` is built against `drizzle-orm@^1.0.0-beta.22`, whose Effect driver lives at
+`drizzle-orm/effect-postgres`. Depend on an explicit beta range rather than the
+`beta` dist-tag: the tag floats, and a new publish would otherwise land in your app
+without a lockfile change.
 
 ## Bootstrap
 
@@ -95,6 +102,130 @@ export const { router } = createKeelWith<HttpClientExtraStatuses>()(
 The provider makes `502` a required key of the response schema of every route whose
 controller can fail with that family, so the OpenAPI document cannot drift from the
 runtime behaviour.
+
+## SQL
+
+Same deal as the runtime: keel does not own the database connection. The app builds
+its own Drizzle Effect service — it decides which variable holds the URL, how the
+pool is configured, which `pg` type parsers are overridden — and hands the tag to
+`createSql`, which closes over it and returns the helpers.
+
+```ts
+// services/database/database.service.ts
+import { PgClient } from "@effect/sql-pg";
+import * as PgDrizzle from "drizzle-orm/effect-postgres";
+import { Config, Effect } from "effect";
+
+const PgClientLive = PgClient.layerConfig({
+  url: Config.redacted("DATABASE_URL"),
+});
+
+export class DatabaseService extends Effect.Service<DatabaseService>()(
+  "DatabaseService",
+  {
+    effect: PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
+    dependencies: [PgClientLive],
+  },
+) {}
+```
+
+```ts
+// shared/app/sql.ts
+import { createSql } from "@kylobyte/keel/sql";
+import { DatabaseService } from "../../services/database/database.service.ts";
+
+export const { buildRepository } = createSql(DatabaseService);
+```
+
+### Repositories
+
+`buildRepository(table)` is write-only: `insert`, `update`, `delete`, keyed on the
+table's `id` column. Reads — including simple ID lookups — belong in feature-specific
+query services that use the database service directly, where the projection and the
+joins are visible at the call site.
+
+```ts
+export class UserRepositoryService extends Effect.Service<UserRepositoryService>()(
+  "repository/User",
+  {
+    effect: buildRepository(users),
+    dependencies: [DatabaseService.Default],
+  },
+) {}
+```
+
+`withTx` reissues the same operations through a running transaction, so writes that
+must land together stay in one:
+
+```ts
+const createPlan = (body: CreatePlanBody) =>
+  Effect.gen(function* () {
+    const database = yield* DatabaseService;
+
+    return yield* database.transaction((transaction) =>
+      Effect.gen(function* () {
+        const plan = yield* planRepo.withTx(transaction).insert(body.plan);
+
+        yield* priceRepo.withTx(transaction).insert({
+          planId: plan.id,
+          ...body.price,
+        });
+
+        return plan;
+      }),
+    );
+  });
+```
+
+### Filters, sorting, pagination
+
+`defineFilter` bundles an Effect Schema with a Drizzle condition per field. Adding a
+field is one change: HTTP validation and SQL generation both follow.
+
+```ts
+const userFilter = defineFilter({
+  name: field(StringOps, (op) => applyStringOp(users.name, op)),
+  createdAt: field(DateOps, (op) => applyDateOp(users.createdAt, op)),
+});
+
+export const UserQuerySchema = S.Struct({
+  ...tableQueryFields, // sort, dir, q, page, pageSize
+  sort: S.optional(S.Literal("name", "createdAt")),
+  filter: S.optional(parseJsonParam(userFilter.schema)),
+});
+
+const listUsers = (query: UserQuery) =>
+  Effect.gen(function* () {
+    const database = yield* DatabaseService;
+
+    const where = userFilter.buildWhere(query.filter ?? {}, [
+      query.q ? ilike(users.name, `%${escapeWildcards(query.q)}%`) : undefined,
+    ]);
+
+    return yield* paginate<DbUser>(
+      database,
+      database
+        .select()
+        .from(users)
+        .where(where)
+        .orderBy(buildOrderBy(getColumns(users), query) ?? asc(users.id)),
+      query,
+    );
+  });
+```
+
+`paginate` runs the page and the total concurrently, counting over the filtered but
+unpaginated query; `paginatedSchema(UserSchema)` is the matching response schema.
+The column map passed to `buildOrderBy` is the allow-list — a `sort` naming anything
+else falls back to the caller's default ordering instead of failing the request, and
+user input reaching `ilike` goes through `escapeWildcards` so a search for `100%`
+does not match every row.
+
+### Migrations
+
+Keel has no opinion here, and ships nothing: schema files, the migration directory
+and the tooling that diffs them (Atlas, drizzle-kit, anything else) stay in the app,
+next to the database they describe.
 
 ## Development
 

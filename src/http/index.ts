@@ -18,6 +18,7 @@ export {
   errorsSchemas,
   HttpErrorSchema,
   makeErrorsSchemas,
+  parseJsonParam,
 } from "./parsing.ts";
 
 export { effectProviderPlugin } from "./plugins/effect.ts";
