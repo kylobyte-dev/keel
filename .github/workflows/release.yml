@@ -1,8 +1,19 @@
 name: Release
 
-# Manual only. The workflow owns the whole release: it bumps the version,
-# publishes, and only then writes the commit and the tag to main — so a failed
-# publish leaves the branch untouched.
+# Manual only: the workflow owns the whole release — it bumps the version,
+# publishes, and only then writes the commit and the tag to main.
+#
+# There is no npm token anywhere. The package is published through a trusted
+# publisher, whose configuration on npm must match what this workflow claims:
+#
+#   organization  kylobyte-dev   <- the GitHub org, NOT the npm scope (@kylobyte)
+#   repository    keel
+#   workflow      release.yml
+#   environment   (empty)
+#
+# npm answers `package not found` when any of those disagree, which reads as if
+# the package were missing rather than as a configuration mismatch. Renaming this
+# file, or adding an `environment:` to the job, means updating npm first.
 on:
   workflow_dispatch:
     inputs:
@@ -22,8 +33,7 @@ jobs:
     permissions:
       # Pushes the release commit and the tag.
       contents: write
-      # Required both for npm provenance and for trusted publishing (OIDC):
-      # GitHub mints the token npm exchanges with the registry.
+      # Mints the OIDC token npm exchanges with the registry, and signs provenance.
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -38,12 +48,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # The publish runs through npm, not pnpm: pnpm cannot do OIDC trusted
-      # publishing yet (pnpm/pnpm#9812). The registry OIDC exchange needs
-      # npm >= 11.5.1, and the npm shipped with Node 22 predates it — so assert
-      # the version instead of trusting that the global install landed in PATH.
-      # Provenance signing works on far older npm, which is why a signed
-      # attestation in the log is no evidence that authentication was attempted.
+      # The publish goes through npm, not pnpm: pnpm cannot do OIDC trusted
+      # publishing yet (pnpm/pnpm#9812). The exchange needs npm >= 11.5.1, which
+      # is newer than the npm bundled with Node 22 — assert it, so a change here
+      # fails loudly instead of failing as an authentication error.
       - name: Install an npm that can authenticate via OIDC
         run: |
           npm install --global npm@^12
@@ -61,17 +69,10 @@ jobs:
             }
           ' "$version"
 
-      # npm needs the registry configured to attempt the OIDC exchange — without
-      # any .npmrc it reports ENEEDAUTH without trying. But `setup-node`'s
-      # `registry-url` also writes `_authToken=${NODE_AUTH_TOKEN}`, and with no
-      # token in the environment that leaves an *empty* credential configured,
-      # which npm appears to send instead of exchanging the OIDC token (the
-      # registry then answers 404 on the PUT). So write the registry line and
-      # nothing else.
-      - name: Point npm at the registry, with no credential configured
-        run: |
-          echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
-          cat "$HOME/.npmrc"
+      # npm needs a configured registry to attempt the OIDC exchange, and no
+      # credential of any kind: the trusted publisher is the only way in.
+      - name: Point npm at the registry
+        run: echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
 
       - run: pnpm install --frozen-lockfile
 
@@ -79,9 +80,8 @@ jobs:
 
       - run: pnpm test
 
-      # Everything that can fail cheaply has run. `npm version` computes the new
-      # number from package.json — nobody types it — then commits and tags.
-      # Nothing is pushed yet.
+      # `npm version` derives the number from package.json, then commits and
+      # tags — locally. Nothing is pushed until the publish succeeds.
       - name: Bump the version
         id: bump
         run: |
@@ -90,11 +90,11 @@ jobs:
           npm version "${{ inputs.bump }}" --message "chore: release v%s"
           echo "released=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - run: npm publish --provenance --loglevel verbose
+      - run: npm publish --provenance
 
-      # Last, so that a rejected publish leaves main exactly as it was. If this
-      # step is the one that fails, the version is already on the registry: push
-      # the commit and the tag by hand rather than releasing again.
+      # Last, so a rejected publish leaves main exactly as it was. If this step
+      # is the one that fails, the version is already published and immutable:
+      # push the release commit and its tag by hand rather than releasing again.
       - name: Push the release commit and its tag
         run: git push --follow-tags origin main
 
