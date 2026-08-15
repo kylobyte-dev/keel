@@ -1,21 +1,34 @@
 name: Release
 
+# Manual only. The workflow owns the whole release: it bumps the version,
+# publishes, and only then writes the commit and the tag to main — so a failed
+# publish leaves the branch untouched.
 on:
-  push:
-    tags: ["v*"]
-  # Escape hatch: publish whatever is on the default branch without tagging.
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "patch | minor | major | prerelease, or an explicit version like 1.2.3"
+        type: string
+        default: patch
+        required: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # Pushes the release commit and the tag.
+      contents: write
       # Required both for npm provenance and for trusted publishing (OIDC):
       # GitHub mints the token npm exchanges with the registry.
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -35,7 +48,7 @@ jobs:
         run: |
           npm install --global npm@^12
           version="$(npm --version)"
-          echo "npm $version at $(which npm), registry $(npm config get registry)"
+          echo "npm $version at $(which npm)"
           node --eval '
             const [major, minor, patch] = process.argv[1].split(".").map(Number);
             const supported =
@@ -66,26 +79,26 @@ jobs:
 
       - run: pnpm test
 
-      # A tag must publish exactly the version in package.json — otherwise the
-      # tag and the registry disagree forever.
-      - name: Check the tag matches package.json
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Everything that can fail cheaply has run. `npm version` computes the new
+      # number from package.json — nobody types it — then commits and tags.
+      # Nothing is pushed yet.
+      - name: Bump the version
+        id: bump
         run: |
-          tagged="${GITHUB_REF_NAME#v}"
-          declared="$(node -p "require('./package.json').version")"
-          if [ "$tagged" != "$declared" ]; then
-            echo "tag v$tagged does not match package.json version $declared" >&2
-            exit 1
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          npm version "${{ inputs.bump }}" --message "chore: release v%s"
+          echo "released=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # No token: the package has a trusted publisher configured for this
-      # repository and this workflow, so npm authenticates with the OIDC token
-      # minted by `id-token: write` above.
-      #
-      # `--provenance` lives here rather than in publishConfig because it is a
-      # CI-only capability: in publishConfig it would break publishing by hand.
-      # Verbose so the log shows whether npm requests an OIDC token exchange at
-      # all (`POST /-/npm/v1/oidc/token/exchange`). If that request is missing,
-      # the problem is on this side; if it is rejected, it is the trusted
-      # publisher configuration on the package.
       - run: npm publish --provenance --loglevel verbose
+
+      # Last, so that a rejected publish leaves main exactly as it was. If this
+      # step is the one that fails, the version is already on the registry: push
+      # the commit and the tag by hand rather than releasing again.
+      - name: Push the release commit and its tag
+        run: git push --follow-tags origin main
+
+      - name: Summary
+        run: |
+          echo "Published \`@kylobyte/keel@${{ steps.bump.outputs.released }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://www.npmjs.com/package/@kylobyte/keel/v/${{ steps.bump.outputs.released }}" >> "$GITHUB_STEP_SUMMARY"
