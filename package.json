@@ -1,8 +1,8 @@
 {
   "name": "@kylobyte/keel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "description": "Opinionated Fastify 5 + Effect backend framework \u2014 Effect Schema as type provider, controllers as Effect services, tagged errors mapped to HTTP, Pino\u2194Effect logging, SSE",
+  "description": "Opinionated Fastify 5 + Effect backend framework — Effect Schema as type provider, controllers as Effect services, tagged errors mapped to HTTP, Pino↔Effect logging, SSE",
   "license": "MIT",
   "repository": {
     "type": "git",
