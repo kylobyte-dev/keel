@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { controller } from "./controller.ts";
 import type { Body } from "./routeTypes.ts";
 
-class Greeter extends Context.Tag("Greeter")<
+class Greeter extends Context.Service<
   Greeter,
   { greet: (name: string) => string }
->() {}
+>()("Greeter") {}
 
 const GreeterLive = Layer.succeed(Greeter, {
   greet: (name: string) => `hello ${name}`,

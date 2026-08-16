@@ -1,7 +1,7 @@
 import { PgClient } from "@effect/sql-pg";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
 import { bigint, pgTable, text } from "drizzle-orm/pg-core";
-import { Config, Effect } from "effect";
+import { Config, Context, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 import { createSql } from "./repository.ts";
 import { paginate } from "./paginate.ts";
@@ -24,13 +24,15 @@ const PgClientLive = PgClient.layerConfig({
   url: Config.redacted("DATABASE_URL"),
 });
 
-class DatabaseService extends Effect.Service<DatabaseService>()(
-  "DatabaseService",
-  {
-    effect: PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
-    dependencies: [PgClientLive],
-  },
-) {}
+class DatabaseService extends Context.Service<
+  DatabaseService,
+  PgDrizzle.EffectPgDatabase & { $client: PgClient.PgClient }
+>()("DatabaseService") {
+  static readonly layer = Layer.effect(
+    DatabaseService,
+    PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
+  ).pipe(Layer.provide(PgClientLive));
+}
 
 const { buildRepository } = createSql(DatabaseService);
 

@@ -11,7 +11,7 @@ import { Schema as S } from "effect";
  * response: { 200: paginatedSchema(UserSchema) }
  * ```
  */
-export const paginatedSchema = <A, I>(itemSchema: S.Schema<A, I>) =>
+export const paginatedSchema = <A, I>(itemSchema: S.Codec<A, I>) =>
   S.Struct({
     items: S.mutable(S.Array(itemSchema)),
     total: S.Number,

@@ -23,9 +23,9 @@ export type SimpleFastifyRequest<
   RawServerDefault,
   IncomingMessage,
   {
-    body: S.Schema<Input["body"]>;
-    querystring: S.Schema<Input["querystring"]>;
-    params: S.Schema<Input["params"]>;
+    body: S.Codec<Input["body"]>;
+    querystring: S.Codec<Input["querystring"]>;
+    params: S.Codec<Input["params"]>;
   },
   EffectTypeProvider,
   unknown,
@@ -33,9 +33,9 @@ export type SimpleFastifyRequest<
   ResolveFastifyRequestType<
     EffectTypeProvider,
     {
-      body: S.Schema<Input["body"]>;
-      querystring: S.Schema<Input["querystring"]>;
-      params: S.Schema<Input["params"]>;
+      body: S.Codec<Input["body"]>;
+      querystring: S.Codec<Input["querystring"]>;
+      params: S.Codec<Input["params"]>;
     },
     RouteGenericInterface
   >
@@ -49,7 +49,7 @@ export type SimpleFastifyReply<Output> = FastifyReply<
   ContextConfigDefault,
   {
     response: {
-      200: S.Schema<Output, any>;
+      200: S.Codec<Output, any>;
     };
   },
   EffectTypeProvider
@@ -63,7 +63,7 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 
 type HttpResponseToSchema<T extends HttpResponse<any, any>> =
   T extends HttpResponse<infer V, infer Status>
-    ? { [K in Status]: S.Schema<V, any> }
+    ? { [K in Status]: S.Codec<V, any> }
     : never;
 
 type ExtractSuccessSchemas<Output> = (Exclude<
@@ -71,7 +71,7 @@ type ExtractSuccessSchemas<Output> = (Exclude<
   HttpResponse<any, any>
 > extends never
   ? unknown
-  : { 200: S.Schema<Exclude<Output, HttpResponse<any, any>>, any> }) &
+  : { 200: S.Codec<Exclude<Output, HttpResponse<any, any>>, any> }) &
   (Extract<Output, HttpResponse<any, any>> extends never
     ? unknown
     : UnionToIntersection<
@@ -115,14 +115,14 @@ export type ResponseSchema<
   Errors,
   ExtraStatuses extends number = never,
 > = ExtractSuccessSchemas<Output> & {
-  500: S.Schema<{ message: string }, any>;
+  500: S.Codec<{ message: string }, any>;
 } & {
-  [Status in Errors extends HttpError ? Errors["statusCode"] : never]: S.Schema<
+  [Status in Errors extends HttpError ? Errors["statusCode"] : never]: S.Codec<
     { message: string },
     any
   >;
 } & {
-  [Status in ExtraStatuses]: S.Schema<{ message: string }, any>;
+  [Status in ExtraStatuses]: S.Codec<{ message: string }, any>;
 };
 
 export type SimpleRouteHandlerMethod<
@@ -141,9 +141,9 @@ export type SimpleRouteHandlerMethod<
   RouteGenericInterface,
   ContextConfigDefault,
   {
-    body?: S.Schema<Input["body"], any>;
-    querystring?: S.Schema<Input["querystring"], any>;
-    params?: S.Schema<Input["params"], any>;
+    body?: S.Codec<Input["body"], any>;
+    querystring?: S.Codec<Input["querystring"], any>;
+    params?: S.Codec<Input["params"], any>;
     response: ResponseSchema<Output, Errors, ExtraStatuses>;
   },
   EffectTypeProvider,

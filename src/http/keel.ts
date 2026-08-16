@@ -6,6 +6,7 @@ import {
   Layer,
   Logger,
   type ManagedRuntime,
+  Result,
 } from "effect";
 import type { FastifyRequest } from "fastify";
 import type { Controller, ControllerInput } from "./controller.ts";
@@ -219,8 +220,10 @@ export const createKeelWith =
             return reply.send(value);
           }
 
-          if (Cause.isFailType(result.cause)) {
-            const cause = result.cause.error;
+          const failure = Cause.findFail(result.cause);
+
+          if (Result.isSuccess(failure)) {
+            const cause = failure.success.error;
 
             if (isHttpError(cause)) {
               return reply
@@ -278,7 +281,7 @@ export const createKeelWith =
         createRouter<R, E, AdditionalErrors>(requestProvider, registerPlugins);
 
     const router = createRouter(() => {
-      return Logger.replace(Logger.defaultLogger, PinoLogger);
+      return Logger.layer([PinoLogger]);
     });
 
     return {

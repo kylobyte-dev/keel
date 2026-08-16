@@ -20,7 +20,7 @@ import { HttpCreated } from "./response/success.ts";
 import { NotFoundError, type HttpError } from "./response/errors.ts";
 import type { ApplyExtraStatuses, ExtraStatusProvider } from "./routeTypes.ts";
 
-class Clock extends Context.Tag("Clock")<Clock, { now: () => string }>() {}
+class Clock extends Context.Service<Clock, { now: () => string }>()("Clock") {}
 
 const AppRuntime = ManagedRuntime.make(
   Layer.succeed(Clock, { now: () => "2026-08-13" }),

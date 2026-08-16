@@ -1,5 +1,12 @@
 import { isHttpError } from "../http/index.ts";
-import { Cause, Effect, Exit, Fiber, type ManagedRuntime } from "effect";
+import {
+  Cause,
+  Effect,
+  Exit,
+  Fiber,
+  type ManagedRuntime,
+  Result,
+} from "effect";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 export type SseHandlerOptions<Context, RuntimeContext> = {
@@ -41,9 +48,9 @@ export const createSseHandlerFactory =
       const authExit = await runtime.runPromiseExit(options.authorize(request));
 
       if (Exit.isFailure(authExit)) {
-        const cause = authExit.cause;
-        if (Cause.isFailType(cause)) {
-          const error: unknown = cause.error;
+        const failure = Cause.findFail(authExit.cause);
+        if (Result.isSuccess(failure)) {
+          const error: unknown = failure.success.error;
           if (isHttpError(error)) {
             return reply
               .status(error.statusCode as any)

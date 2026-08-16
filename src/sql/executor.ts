@@ -8,6 +8,6 @@ import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
  * transaction with `withTx`, and what lets `paginate` be handed either one.
  */
 export type SqlExecutor = Pick<
-  EffectPgDatabase<any, any>,
+  EffectPgDatabase<any>,
   "select" | "insert" | "update" | "delete"
 >;

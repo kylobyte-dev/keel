@@ -1,12 +1,10 @@
 import {
   Array,
   Cause,
-  FiberId,
-  HashMap,
   Inspectable,
-  List,
   Logger,
   LogLevel,
+  References,
 } from "effect";
 import type { FastifyBaseLogger } from "fastify";
 import pino from "pino";
@@ -19,8 +17,8 @@ export const pinoInstance = pino({
 });
 
 export const PinoLogger = Logger.make<unknown, void>(
-  ({ annotations, cause, date, fiberId, logLevel, message, spans }) => {
-    if (logLevel._tag === "None") {
+  ({ cause, date, fiber, logLevel, message }) => {
+    if (logLevel === "None") {
       return;
     }
 
@@ -28,16 +26,14 @@ export const PinoLogger = Logger.make<unknown, void>(
     const annotationsObj: Record<string, unknown> = {};
     const spansObj: Record<string, number> = {};
 
-    if (HashMap.size(annotations) > 0) {
-      for (const [key, value] of annotations) {
-        annotationsObj[key] = structuredMessage(value);
-      }
+    for (const [key, value] of Object.entries(
+      fiber.getRef(References.CurrentLogAnnotations),
+    )) {
+      annotationsObj[key] = structuredMessage(value);
     }
 
-    if (List.isCons(spans)) {
-      for (const span of spans) {
-        spansObj[span.label] = now - span.startTime;
-      }
+    for (const [label, startTime] of fiber.getRef(References.CurrentLogSpans)) {
+      spansObj[label] = now - startTime;
     }
 
     const messageArr = Array.ensure(message);
@@ -46,15 +42,13 @@ export const PinoLogger = Logger.make<unknown, void>(
       messageArr.length === 0 ? undefined : structuredMessage(messageArr[0]);
 
     const data = {
-      cause: Cause.isEmpty(cause)
-        ? undefined
-        : Cause.pretty(cause, { renderErrorCause: true }),
+      cause: cause.reasons.length === 0 ? undefined : Cause.pretty(cause),
       annotations: annotationsObj,
       spans: spansObj,
-      fiberId: FiberId.threadName(fiberId),
+      fiberId: `#${fiber.id}`,
     };
 
-    const logFn = logLevelMap[logLevel._tag];
+    const logFn = logLevelMap[logLevel];
 
     pinoInstance[logFn](data, formattedMessage);
   },
@@ -68,7 +62,7 @@ const structuredMessage = (value: unknown) => {
       return String(value);
     }
     default: {
-      return Inspectable.toJSON(value) as string;
+      return Inspectable.toJson(value) as string;
     }
   }
 };
@@ -80,8 +74,5 @@ const logLevelMap = {
   Fatal: "fatal",
   Info: "info",
   Trace: "trace",
-  Warning: "warn",
-} satisfies Record<
-  Exclude<LogLevel.LogLevel["_tag"], "None">,
-  keyof FastifyBaseLogger
->;
+  Warn: "warn",
+} satisfies Record<Exclude<LogLevel.LogLevel, "None">, keyof FastifyBaseLogger>;

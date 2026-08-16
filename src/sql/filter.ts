@@ -4,7 +4,7 @@ import type { SQL } from "drizzle-orm";
 
 /** A single filter field: how it is validated, and how it becomes SQL. */
 export type FieldDef<A> = {
-  schema: S.Schema<A, any, never>;
+  schema: S.Codec<A, any, never>;
   toSQL: (value: A) => SQL;
 };
 
@@ -16,9 +16,9 @@ export type FieldDef<A> = {
  * @returns The field definition consumed by `defineFilter`.
  */
 export const field = <A, I>(
-  schema: S.Schema<A, I, never>,
+  schema: S.Codec<A, I, never>,
   toSQL: (value: A) => SQL,
-): FieldDef<A> => ({ schema: schema as S.Schema<A, any, never>, toSQL });
+): FieldDef<A> => ({ schema: schema as S.Codec<A, any, never>, toSQL });
 
 type FilterDef = Record<string, FieldDef<any>>;
 type FilterType<D extends FilterDef> = {
@@ -58,7 +58,7 @@ export const defineFilter = <D extends FilterDef>(def: D) => {
         S.optional(fieldSchema),
       ]),
     ),
-  ) as unknown as S.Schema<FilterType<D>>;
+  ) as unknown as S.Codec<FilterType<D>>;
 
   const buildWhere = (
     values: FilterType<D>,

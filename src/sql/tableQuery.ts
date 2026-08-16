@@ -1,4 +1,4 @@
-import { Schema as S } from "effect";
+import { Effect, Schema as S } from "effect";
 import { asc, desc } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -22,14 +22,16 @@ export const MAX_PAGE_SIZE = 100;
  */
 export const tableQueryFields = {
   sort: S.optional(S.String),
-  dir: S.optional(S.Literal("asc", "desc")),
+  dir: S.optional(S.Literals(["asc", "desc"])),
   q: S.optional(S.String),
-  page: S.optional(S.NumberFromString.pipe(S.greaterThan(0))).pipe(
-    S.withDecodingDefault(() => DEFAULT_PAGE),
+  page: S.optional(S.NumberFromString.pipe(S.check(S.isGreaterThan(0)))).pipe(
+    S.withDecodingDefaultType(Effect.succeed(DEFAULT_PAGE)),
   ),
   pageSize: S.optional(
-    S.NumberFromString.pipe(S.between(0, MAX_PAGE_SIZE)),
-  ).pipe(S.withDecodingDefault(() => DEFAULT_PAGE_SIZE)),
+    S.NumberFromString.pipe(
+      S.check(S.isBetween({ minimum: 0, maximum: MAX_PAGE_SIZE })),
+    ),
+  ).pipe(S.withDecodingDefaultType(Effect.succeed(DEFAULT_PAGE_SIZE))),
 };
 
 export const TableQuerySchema = S.Struct(tableQueryFields);

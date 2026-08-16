@@ -3,6 +3,7 @@ import { errorCodes } from "fastify";
 import { describe, expect, it } from "vitest";
 import { ResponseSerializationError } from "./errors.ts";
 import {
+  inlineLocalDefs,
   jsonSchemaTransform,
   serializerCompiler,
   validatorCompiler,
@@ -41,10 +42,12 @@ describe("validatorCompiler", () => {
 
     expect(result.error).toBeInstanceOf(errorCodes.FST_ERR_VALIDATION);
     expect(result.error.validation).toHaveLength(1);
+    // Effect 4's Standard Schema formatter reports `{ message, path }` without
+    // the issue tag Effect 3 exposed, so `keyword` is no longer per-issue.
     expect(result.error.validation?.[0]).toMatchObject({
-      keyword: "Type",
+      keyword: "schema",
       instancePath: "age",
-      schemaPath: "body/age:Type",
+      schemaPath: "body/age",
     });
     expect(result.error.validation?.[0]?.params).toHaveProperty("message");
   });
@@ -64,7 +67,7 @@ describe("validatorCompiler", () => {
 
     expect(result.error.validation?.[0]).toMatchObject({
       instancePath: "car.plate",
-      schemaPath: "body/car/plate:Type",
+      schemaPath: "body/car/plate",
     });
   });
 });
@@ -162,7 +165,7 @@ describe("jsonSchemaTransform", () => {
     // A schema annotated with an identifier is emitted by `JSONSchema.make` as a
     // local `$defs` entry plus a `$ref` to it — a ref that does not resolve once
     // the schema is nested inside the OpenAPI document.
-    const Money = S.Struct({ amount: S.Number }).annotations({
+    const Money = S.Struct({ amount: S.Number }).annotate({
       identifier: "Money",
     });
     const Invoice = S.Struct({ total: Money, paid: Money });
@@ -185,20 +188,23 @@ describe("jsonSchemaTransform", () => {
       );
     });
 
+    // Effect 4 has no schema-level JSON Schema override, so an external `$ref`
+    // can no longer be produced through a schema: the branch is exercised on
+    // `inlineLocalDefs` directly instead.
     it("leaves refs that do not point at a local $defs entry intact", () => {
-      const External = S.Struct({ id: S.String }).annotations({
-        jsonSchema: { $ref: "#/components/schemas/External" },
+      const result = inlineLocalDefs({
+        type: "object",
+        properties: {
+          external: { $ref: "#/components/schemas/External" },
+          missing: { $ref: "#/$defs/Absent" },
+        },
+        $defs: {},
       });
 
-      const result = transform(
-        { body: S.Struct({ external: External }) },
-        "/externals",
-      );
-
-      const schema = result.schema as Record<string, any>;
-      expect(schema.body.properties.external).toEqual({
+      expect(result.properties.external).toEqual({
         $ref: "#/components/schemas/External",
       });
+      expect(result.properties.missing).toEqual({ $ref: "#/$defs/Absent" });
     });
 
     it("does not loop on a recursive schema", () => {
@@ -211,7 +217,7 @@ describe("jsonSchemaTransform", () => {
         children: S.Array(
           S.suspend((): S.Schema<Node> => NodeSchema),
         ) as S.Schema<ReadonlyArray<Node>>,
-      }).annotations({ identifier: "Node" });
+      }).annotate({ identifier: "Node" });
 
       const result = transform({ body: NodeSchema }, "/nodes");
 

@@ -4,30 +4,30 @@ import type { SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 
 /** Comparison operators accepted for a string column in a filter. */
-export const StringOps = S.Union(
+export const StringOps = S.Union([
   S.Struct({ eq: S.String }),
   S.Struct({ neq: S.String }),
   S.Struct({ like: S.String }),
   S.Struct({ in: S.Array(S.String) }),
-);
+]);
 export type StringOps = S.Schema.Type<typeof StringOps>;
 
 /**
- * `S.Date` with an explicit OpenAPI representation.
+ * The ISO-string ⇄ `Date` codec, with an explicit OpenAPI representation.
  *
- * Without the annotation the generated document describes the decoded `Date`
- * rather than the ISO string that actually travels on the wire.
+ * Under Effect 4 the string-decoding codec is `S.DateFromString` — plain
+ * `S.Date` validates an existing `Date` and would reject the string that
+ * actually travels on the wire. The generated document already says `string`;
+ * the annotation adds the `date-time` format for the reader.
  */
-export const DateSchema = S.Date.pipe(
-  S.annotations({ jsonSchema: { type: "string", format: "date-time" } }),
-);
+export const DateSchema = S.DateFromString.annotate({ format: "date-time" });
 
 /** Comparison operators accepted for a date column in a filter. */
-export const DateOps = S.Union(
+export const DateOps = S.Union([
   S.Struct({ gte: DateSchema }),
   S.Struct({ lte: DateSchema }),
-  S.Struct({ between: S.Tuple(DateSchema, DateSchema) }),
-);
+  S.Struct({ between: S.Tuple([DateSchema, DateSchema]) }),
+]);
 export type DateOps = S.Schema.Type<typeof DateOps>;
 
 /**

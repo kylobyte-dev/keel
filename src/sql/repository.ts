@@ -83,7 +83,7 @@ export type Repository<T extends TableWithIdConfig> = RepositoryOps<T> & {
  * ```
  */
 export const createSql = <Self, Database extends SqlExecutor>(
-  Database: Context.Tag<Self, Database>,
+  Database: Context.Key<Self, Database>,
 ) => {
   /**
    * Builds a write-only repository for a given Drizzle table.

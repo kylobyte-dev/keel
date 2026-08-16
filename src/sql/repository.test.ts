@@ -65,10 +65,9 @@ const makeFakeExecutor = (rows: DbUser[] = [alice]) => {
   return { executor, calls };
 };
 
-class DatabaseService extends Context.Tag("DatabaseService")<
-  DatabaseService,
-  SqlExecutor
->() {}
+class DatabaseService extends Context.Service<DatabaseService, SqlExecutor>()(
+  "DatabaseService",
+) {}
 
 const { buildRepository } = createSql(DatabaseService);
 

@@ -1,6 +1,6 @@
 import type { SwaggerTransform } from "@fastify/swagger";
 import { pinoInstance } from "../runtime/index.ts";
-import { Either, JSONSchema, ParseResult, Schema as S } from "effect";
+import { Result, Schema as S, SchemaIssue } from "effect";
 import {
   errorCodes,
   type FastifyPluginAsync,
@@ -15,58 +15,79 @@ import type { FastifySerializerCompiler } from "fastify/types/schema.js";
 import { ResponseSerializationError } from "./errors.ts";
 
 export interface EffectTypeProvider extends FastifyTypeProvider {
-  validator: this["schema"] extends S.Schema<any>
+  validator: this["schema"] extends S.Top
     ? S.Schema.Type<this["schema"]>
     : never;
-  serializer: this["schema"] extends S.Schema<any>
+  serializer: this["schema"] extends S.Top
     ? S.Schema.Type<this["schema"]>
     : never;
-  response: this["schema"] extends S.Schema<any>
+  response: this["schema"] extends S.Top
     ? S.Schema.Type<this["schema"]>
     : never;
 }
 
-export const validatorCompiler: FastifySchemaCompiler<S.Schema<any>> =
+/**
+ * The JSON Schema for a schema, as a self-contained object.
+ *
+ * v4 returns a document — the schema plus a separate `definitions` map — so the
+ * definitions are folded back under `$defs` to match what `inlineLocalDefs`
+ * (and Fastify's schema slot) expect.
+ */
+export const makeJsonSchema = (schema: S.Top): Record<string, any> => {
+  const document = S.toJsonSchemaDocument(schema);
+
+  return Object.keys(document.definitions).length > 0
+    ? { ...document.schema, $defs: document.definitions }
+    : { ...document.schema };
+};
+
+const formatIssue = SchemaIssue.makeFormatterStandardSchemaV1();
+
+export const validatorCompiler: FastifySchemaCompiler<S.Codec<any, any>> =
   ({ schema, httpPart }) =>
   (data) => {
-    const result = S.decodeUnknownEither(schema)(data);
+    const result = S.decodeUnknownResult(schema)(data);
 
-    if (Either.isLeft(result)) {
+    if (Result.isFailure(result)) {
       const error = new errorCodes.FST_ERR_VALIDATION(
         httpPart,
         "Validation failed",
-        ParseResult.TreeFormatter.formatErrorSync(result.left),
+        result.failure.message,
       );
-      const issues = ParseResult.ArrayFormatter.formatIssueSync(
-        result.left.issue,
-      );
-      error.validation = issues.map((issue) => ({
-        keyword: issue._tag,
-        instancePath: issue.path.join("."),
-        schemaPath: `${httpPart}/${issue.path.join("/")}:${issue._tag}`,
-        params: {
-          message: issue.message,
-        },
-      }));
+      const { issues } = formatIssue(result.failure.issue);
+      error.validation = issues.map((issue) => {
+        const path = (issue.path ?? []).map((segment) =>
+          typeof segment === "object" ? String(segment.key) : String(segment),
+        );
+
+        return {
+          keyword: "schema",
+          instancePath: path.join("."),
+          schemaPath: `${httpPart}/${path.join("/")}`,
+          params: {
+            message: issue.message,
+          },
+        };
+      });
 
       return { error };
     }
 
-    return { value: result.right };
+    return { value: result.success };
   };
 
-export const serializerCompiler: FastifySerializerCompiler<S.Schema<any>> =
+export const serializerCompiler: FastifySerializerCompiler<S.Codec<any, any>> =
   ({ schema, method, url }) =>
   (data) => {
-    const result = S.encodeUnknownEither(schema)(data);
-    if (Either.isLeft(result)) {
-      pinoInstance.error(result.left.message);
+    const result = S.encodeUnknownResult(schema)(data);
+    if (Result.isFailure(result)) {
+      pinoInstance.error(result.failure.message);
       throw new ResponseSerializationError(method, url, {
-        cause: result.left,
+        cause: result.failure,
       });
     }
 
-    return JSON.stringify(result.right);
+    return JSON.stringify(result.success);
   };
 
 export type FastifyPluginAsyncEffect<
@@ -75,14 +96,17 @@ export type FastifyPluginAsyncEffect<
 > = FastifyPluginAsync<Options, Server, EffectTypeProvider>;
 
 /**
- * `JSONSchema.make` puts reusable definitions in a local `$defs` block and references
- * them with `$ref: "#/$defs/Name"`. But that ref resolves against the **root of the
- * OpenAPI document**, where `$defs` does not exist (it sits nested inside the route
- * schema): Scalar tolerates it, strict bundlers (openapi-typescript) fail. So we
- * dereference the local `$defs` inline here, leaving every schema self-contained.
- * A recursive schema is left intact (the `seen` guard) rather than looping forever.
+ * `toJsonSchemaDocument` puts reusable definitions in a separate `definitions` map,
+ * which `makeJsonSchema` folds back under `$defs`, referenced as `$ref: "#/$defs/Name"`.
+ * But that ref resolves against the **root of the OpenAPI document**, where `$defs`
+ * does not exist (it sits nested inside the route schema): Scalar tolerates it, strict
+ * bundlers (openapi-typescript) fail. So we dereference the local `$defs` inline here,
+ * leaving every schema self-contained. A recursive schema is left intact (the `seen`
+ * guard) rather than looping forever.
  */
-const inlineLocalDefs = (root: Record<string, any>): Record<string, any> => {
+export const inlineLocalDefs = (
+  root: Record<string, any>,
+): Record<string, any> => {
   const defs: Record<string, any> = root?.$defs ?? {};
 
   const resolve = (node: any, seen: ReadonlySet<string>): any => {
@@ -151,7 +175,7 @@ export const jsonSchemaTransform: (
     for (const prop in effectSchema) {
       const propSchema = effectSchema[prop];
       if (propSchema) {
-        transformed[prop] = inlineLocalDefs(JSONSchema.make(propSchema));
+        transformed[prop] = inlineLocalDefs(makeJsonSchema(propSchema));
       }
     }
 
@@ -161,7 +185,7 @@ export const jsonSchemaTransform: (
       for (const prop in response) {
         const propSchema = (response as any)[prop];
         transformed.response[prop] = inlineLocalDefs(
-          JSONSchema.make(propSchema),
+          makeJsonSchema(propSchema),
         );
       }
     }

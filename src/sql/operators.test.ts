@@ -9,7 +9,7 @@ import {
   StringOps,
 } from "./operators.ts";
 
-const decode = <A, I>(schema: S.Schema<A, I>, input: unknown) =>
+const decode = <A, I>(schema: S.Codec<A, I>, input: unknown) =>
   S.decodeUnknownSync(schema)(input);
 
 describe("StringOps schema", () => {
