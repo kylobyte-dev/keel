@@ -1,16 +1,20 @@
 ---
 title: "SQL"
-description: "The optional /sql entry point: Drizzle over @effect/sql, and what keel adds on top."
+description: "The optional /sql entry point: Drizzle over Effect's SQL layer, and what keel adds on top."
 ---
 
 `@kylobyte/keel/sql` is Drizzle over `@effect/sql-pg`: a write-only repository
 builder, and a query layer that turns HTTP query params into filtered, sorted,
-paginated SQL. It needs three optional peers, and a fourth for the id helper:
+paginated SQL. It needs two optional peers, and a third for the id helper:
 
 ```bash
-pnpm add drizzle-orm@1.0.0-beta.22 @effect/sql@0.48.6 @effect/sql-pg@0.49.7
+pnpm add drizzle-orm@1.0.0-rc.5-ab785fc @effect/sql-pg@4.0.0-rc.109
 pnpm add snowyflake@2.0.1   # only if you use snowflakeId()
 ```
+
+Those are exact prerelease versions on purpose — see
+[Install](/keel/install/#the-02-line-needs-exact-prerelease-peers) for the
+combination that does not work and the error it produces.
 
 `pg` comes along as a dependency of `@effect/sql-pg`; install it directly only if
 your own code imports it — overriding type parsers, say.
@@ -25,19 +29,21 @@ the requirements of every repository built from it.
 // services/database/database.service.ts
 import { PgClient } from "@effect/sql-pg";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
-import { Config, Effect } from "effect";
+import { Config, Context, Effect, Layer } from "effect";
 
 const PgClientLive = PgClient.layerConfig({
   url: Config.redacted("DATABASE_URL"),
 });
 
-export class DatabaseService extends Effect.Service<DatabaseService>()(
-  "DatabaseService",
-  {
-    effect: PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
-    dependencies: [PgClientLive],
-  },
-) {}
+export class DatabaseService extends Context.Service<
+  DatabaseService,
+  PgDrizzle.EffectPgDatabase & { $client: PgClient.PgClient }
+>()("DatabaseService") {
+  static readonly layer = Layer.effect(
+    DatabaseService,
+    PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
+  ).pipe(Layer.provide(PgClientLive));
+}
 ```
 
 ```ts

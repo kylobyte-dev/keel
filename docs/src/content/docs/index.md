@@ -41,5 +41,5 @@ covers why it was built this way.
 - **[Install](/keel/install/)** — entry points and the peer dependencies, and why they are peers.
 - **[Bootstrap](/keel/bootstrap/)** — building the runtime and handing it to keel.
 - **[Controllers](/keel/controllers/)** and **[Routes](/keel/routes/)** — the day-to-day surface.
-- **[SQL](/keel/sql/)** — the optional Drizzle + `@effect/sql` entry point.
+- **[SQL](/keel/sql/)** — the optional Drizzle + `effect/unstable/sql` entry point.
 - **[Troubleshooting](/keel/troubleshooting/)** — what a compile error from all this means.

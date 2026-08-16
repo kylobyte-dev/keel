@@ -30,8 +30,8 @@ One package, one version. Entry points:
 
 `effect`, `fastify`, `pino`, `pino-pretty` and the `@fastify/*` plugins are **peer
 dependencies**, never dependencies: two instances of `effect` in one process break
-`Context.Tag` identity. Which peers are optional, and why the `/sql` ones are
-pinned to exact versions, is covered in
+service key identity. Which peers are optional, why the `/sql` ones are pinned to
+exact versions, and which npm dist-tag to install, is covered in
 [Install](https://kylobyte-dev.github.io/keel/install/).
 
 ## Guide
@@ -59,7 +59,7 @@ Reference:
 | [Runtime](https://kylobyte-dev.github.io/keel/runtime/)                 | Pino↔Effect logging, `memoizedConfig`, helpers                     |
 | [OpenAPI](https://kylobyte-dev.github.io/keel/openapi/)                 | Generating the document, serving the reference                     |
 | [SSE](https://kylobyte-dev.github.io/keel/sse/)                         | Server-sent events over an Effect stream                           |
-| [SQL](https://kylobyte-dev.github.io/keel/sql/)                         | Drizzle over `@effect/sql`: ids, repositories, filters, migrations |
+| [SQL](https://kylobyte-dev.github.io/keel/sql/)                         | Drizzle over Effect's SQL layer: ids, repositories, filters, migrations |
 | [Testing](https://kylobyte-dev.github.io/keel/testing/)                 | Unit-testing controllers, and driving routes through `inject`      |
 | [Troubleshooting](https://kylobyte-dev.github.io/keel/troubleshooting/) | Symptom index: the compile errors and runtime surprises, explained |
 

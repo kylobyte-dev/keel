@@ -12,13 +12,17 @@ the one that is always almost right.)
 
 ```ts
 // modules/user/db/user.repository.ts
-export class UserRepositoryService extends Effect.Service<UserRepositoryService>()(
-  "repository/User",
-  {
-    effect: buildRepository(users),
-    dependencies: [DatabaseService.Default],
-  },
-) {}
+const userRepository = buildRepository(users);
+
+export class UserRepositoryService extends Context.Service<
+  UserRepositoryService,
+  Effect.Success<typeof userRepository>
+>()("repository/User") {
+  static readonly layer = Layer.effect(
+    UserRepositoryService,
+    userRepository,
+  ).pipe(Layer.provide(DatabaseService.layer));
+}
 ```
 
 `insert` and `update` return the written row, or `null` when nothing was written —
@@ -28,21 +32,25 @@ caller decides what to do with.
 Extend the repository with anything the generic three cannot express:
 
 ```ts
-export class UserRepositoryService extends Effect.Service<UserRepositoryService>()(
-  "repository/User",
-  {
-    effect: Effect.gen(function* () {
-      const repository = yield* buildRepository(users);
+const userRepository = Effect.gen(function* () {
+  const repository = yield* buildRepository(users);
 
-      return {
-        ...repository,
-        setSftpCredentials: (id: bigint, sftpUsername: string) =>
-          repository.update(id, { sftpUsername }),
-      };
-    }),
-    dependencies: [DatabaseService.Default],
-  },
-) {}
+  return {
+    ...repository,
+    setSftpCredentials: (id: bigint, sftpUsername: string) =>
+      repository.update(id, { sftpUsername }),
+  };
+});
+
+export class UserRepositoryService extends Context.Service<
+  UserRepositoryService,
+  Effect.Success<typeof userRepository>
+>()("repository/User") {
+  static readonly layer = Layer.effect(
+    UserRepositoryService,
+    userRepository,
+  ).pipe(Layer.provide(DatabaseService.layer));
+}
 ```
 
 `withTx` reissues the same operations through a running transaction, so writes that

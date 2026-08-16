@@ -103,15 +103,15 @@ import { UnauthorizedError } from "@kylobyte/keel";
 import { authPlugin } from "../../server/plugins/auth.ts";
 import { UserService } from "../../modules/user/user.service.ts";
 
-export class CurrentUser extends Context.Tag("CurrentUser")<
+export class CurrentUser extends Context.Service<
   CurrentUser,
   { id: bigint; email: string | null; permissions: ReadonlySet<string> }
->() {}
+>()("CurrentUser") {}
 
 export const authenticatedRouter = createRouterWithErrors<UnauthorizedError>()(
   (request) =>
     Layer.merge(
-      Logger.replace(Logger.defaultLogger, PinoLogger),
+      Logger.layer([PinoLogger]),
       Layer.effect(
         CurrentUser,
         Effect.gen(function* () {
@@ -124,7 +124,7 @@ export const authenticatedRouter = createRouterWithErrors<UnauthorizedError>()(
             permissions: permissionsFor(user),
           };
         }).pipe(Effect.orDie),
-      ).pipe(Layer.provide(UserService.Default)),
+      ).pipe(Layer.provide(UserService.layer)),
     ),
   async (app) => {
     await app.register(authPlugin);
@@ -144,7 +144,7 @@ export const getMe = controller(
 
       return yield* users.findById(id);
     }),
-  [UserService.Default],
+  [UserService.layer],
 );
 ```
 

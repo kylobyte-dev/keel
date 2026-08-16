@@ -66,8 +66,8 @@ It works through an `onRoute` hook and **replaces** `schema.tags`, so a route ca
 opt into a second tag while the plugin is registered — one router, one tag.
 
 The transform behind all this (`jsonSchemaTransform`, also exported from `/http` if you
-need to build the Swagger registration yourself) runs `JSONSchema.make` per schema and
-then inlines local `$defs`. Effect emits reusable definitions as `$ref: "#/$defs/Name"`,
+need to build the Swagger registration yourself) runs `Schema.toJsonSchemaDocument`
+per schema, folds its `definitions` back under `$defs`, and then inlines them. Effect emits reusable definitions as `$ref: "#/$defs/Name"`,
 which resolves against the document root — where `$defs` does not exist, since it sits
 nested inside the route schema. Scalar tolerates the dangling ref; strict bundlers like
 `openapi-typescript` do not. Inlining makes every schema self-contained; a recursive

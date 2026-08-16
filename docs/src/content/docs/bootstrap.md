@@ -18,7 +18,7 @@ import { Layer, ManagedRuntime } from "effect";
 import { DatabaseService } from "../../../services/database/database.service.ts";
 import { RedisService } from "../../../services/redis/redis.service.ts";
 
-const layer = Layer.mergeAll(DatabaseService.Default, RedisService.Default);
+const layer = Layer.mergeAll(DatabaseService.layer, RedisService.layer);
 
 export const AppRuntime = ManagedRuntime.make(layer);
 export type AppRuntimeContext =

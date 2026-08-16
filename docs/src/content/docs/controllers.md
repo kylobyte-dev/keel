@@ -29,7 +29,7 @@ export const getUser = controller(
 
       return user;
     }),
-  [UserService.Default],
+  [UserService.layer],
 );
 
 export const createUser = controller(
@@ -39,7 +39,7 @@ export const createUser = controller(
 
       return new HttpCreated(yield* users.create(body));
     }),
-  [UserService.Default],
+  [UserService.layer],
 );
 ```
 

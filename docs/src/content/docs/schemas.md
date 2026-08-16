@@ -6,8 +6,15 @@ description: "Where Effect Schema decoding happens on the way in and encoding on
 `effectProviderPlugin` makes Effect Schema the validator and the serializer:
 `S.decodeUnknown` on the way in, `S.encodeUnknown` on the way out. So the schema's
 **decoded** type is what controllers see, and the **encoded** type is what travels —
-a `S.BigInt` field is a `bigint` in your code and a string on the wire, and the
-transformation happens in one place.
+a `S.BigIntFromString` field is a `bigint` in your code and a string on the wire,
+and the transformation happens in one place.
+
+:::caution[Effect 4 renamed the codecs]
+`S.BigInt` and `S.Date` **validate** a value that is already a `bigint` or a
+`Date`; they do not decode the string that arrives over HTTP. The codecs that do
+are `S.BigIntFromString` and `S.DateFromString`. Both spellings type-check, so a
+schema that uses the wrong one compiles and fails at request time.
+:::
 
 Serialization is strict. A response that does not match its schema throws
 `ResponseSerializationError` (500) with the parse error logged, rather than sending a
@@ -19,10 +26,10 @@ Two helpers exist because JSON Schema generation needs a hint:
 ```ts
 import { BigIntIdSchema, parseJsonParam } from "@kylobyte/keel";
 
-// A 64-bit id: `bigint` in code, string in JSON, documented as a string
+// A 64-bit id: `bigint` in code, string in JSON
 params: S.Struct({ id: BigIntIdSchema }),
 
-// GET /users?filter={"role":"admin"} — validated as an object, documented as one
+// GET /users?filter={"role":"admin"} — decoded and validated as an object
 querystring: S.Struct({ filter: S.optional(parseJsonParam(UserFilterSchema)) }),
 ```
 
@@ -38,7 +45,7 @@ export const UserSchema = S.Struct({
   id: BigIntIdSchema,
   name: S.String,
   email: S.NullOr(S.String),
-  createdAt: S.Date,
+  createdAt: S.DateFromString,
 });
 export type User = S.Schema.Type<typeof UserSchema>;
 ```

@@ -52,5 +52,6 @@ export const events = pgTable("events", {
 ```
 
 On the wire, a 64-bit id travels as a string — JSON has no integer wide enough —
-which is what `BigIntIdSchema` from `@kylobyte/keel` encodes, annotation included so
-the OpenAPI document says `string` rather than describing the decoded `bigint`.
+which is what `BigIntIdSchema` from `@kylobyte/keel` encodes. It wraps
+`S.BigIntFromString`: plain `S.BigInt` validates a `bigint` that already is one and
+rejects the string that actually arrives.
