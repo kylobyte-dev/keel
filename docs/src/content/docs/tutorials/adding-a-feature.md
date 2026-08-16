@@ -528,11 +528,11 @@ const product = {
 };
 
 const productService = (
-  overrides: Partial<ProductService> = {},
+  overrides: Partial<typeof ProductService.Service> = {},
 ) =>
   Layer.succeed(
     ProductService,
-    ProductService.make({
+    ProductService.of({
       list: () =>
         Effect.succeed({ items: [product], total: 1, page: 1, pageSize: 20 }),
       findById: () => Effect.succeed(product),
