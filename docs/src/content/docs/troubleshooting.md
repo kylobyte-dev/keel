@@ -59,7 +59,7 @@ is provided by neither.
 
 - shared or stateful → add it to the runtime layer in `ManagedRuntime.make`;
 - derived from the request → provide it from the router's request provider;
-- feature-local → add `[TheService.Default]` to the controller's layer list.
+- feature-local → add `[TheService.layer]` to the controller's layer list.
 
 That decision is the [three-scope
 rule](/keel/architecture/#three-places-a-dependency-can-live); picking the wrong scope
@@ -78,8 +78,10 @@ there, which is authentication being enforced by the compiler.
 **Why** the input type of a controller is a _constraint on the route_: `Params<{ id:
 bigint }>` demands a `params` schema that decodes to a `bigint`.
 
-**Fix** use `BigIntIdSchema` (or `S.BigInt`) in the route's `params`, not `S.String`.
-Remember the decoded type is what the controller sees — the wire is still a string.
+**Fix** use `BigIntIdSchema` (or `S.BigIntFromString`) in the route's `params`, not
+`S.String`. Remember the decoded type is what the controller sees — the wire is still a
+string. Plain `S.BigInt` will not do: under Effect 4 it validates a value that already
+is a `bigint` and rejects the string that arrives.
 
 ### `errorsSchemas([502])` will not type-check
 
@@ -127,36 +129,17 @@ causes:
 
 ### A tagged error came back as 500 instead of its own status
 
-**Why** two possibilities, and the second is easy to miss.
+**Why** it was a _defect_, not a failure — `Effect.die`, or an exception thrown inside
+`Effect.sync`. A defect is always a 500 by design; the whole `Cause` goes to the log.
 
-The failure was not a plain `Fail` cause. `createRoute` inspects
-`Cause.isFailType(cause)`, which matches a direct failure but not a composite one — and
-a typed error escaping a _concurrent_ combinator arrives wrapped:
-
-```ts
-// cause is `Parallel`, so the mapping is skipped and this is a 500
-Effect.all([mightFail, somethingElse], { concurrency: 2 });
-Effect.race(a, b);
-```
-
-Sequential `Effect.all`, `Effect.gen`, finalizers and scopes all produce a plain `Fail`
-and map correctly. Only concurrency and racing wrap the cause.
-
-**Fix** flatten the failure before it leaves the controller:
-
-```ts
-Effect.all([mightFail, somethingElse], { concurrency: 2 }).pipe(
-  Effect.catchAll((error) => Effect.fail(error)),
-);
-```
-
-`catchAll` extracts the failure value and re-raises it as a plain `Fail`, which maps as
-expected. `Effect.catchTag("SomeError", Effect.fail)` works the same way when you want
-to be selective.
-
-The other possibility is simply that it was a _defect_, not a failure — `Effect.die`, or
-a thrown exception inside `Effect.sync`. Those are always a 500; the whole `Cause` is in
-the log.
+:::note[This used to have a second cause]
+Under Effect 3 a typed error escaping a concurrent combinator arrived wrapped in a
+`Parallel` cause, which `Cause.isFailType` did not match, so `Effect.all(…, {
+concurrency })` and `Effect.race` turned typed failures into 500s. Effect 4's `Cause`
+carries a flat list of reasons and `createRoute` uses `Cause.findFail`, which finds the
+failure whatever combinator produced it. No flattening workaround is needed on this
+line.
+:::
 
 ### The 400 has no `details`
 
@@ -183,9 +166,9 @@ the default JSON Schema compiler and never see your Effect Schemas.
 
 ### An id comes back as a number, or as `1n`, or not at all
 
-**Why** the encoded type is what travels. A raw `S.BigInt` encodes to a string but is
-_documented_ as the decoded type; a plain `S.Number` on a `bigint` column will not
-encode at all.
+**Why** the encoded type is what travels, and `S.BigInt` is not a codec under Effect 4
+— it validates a `bigint` and encodes it right back, so nothing turns it into a string.
+A plain `S.Number` on a `bigint` column will not encode at all.
 
 **Fix** use `BigIntIdSchema` for 64-bit ids. Assert on the encoded shape in a test that
 goes through `inject` — that is the only level where the wire format is visible.
@@ -194,8 +177,8 @@ goes through `inject` — that is the only level where the wire format is visibl
 
 ### A service is missing at runtime, but everything compiled
 
-**Why** almost always two copies of `effect` in the process. `Context.Tag` identity is
-per module instance, so your app's tag and the tag keel resolves are different objects
+**Why** almost always two copies of `effect` in the process. Service key identity is
+per module instance, so your app's key and the key keel resolves are different objects
 with the same name, and the layer that clearly provides the service does not satisfy
 the lookup.
 
@@ -237,7 +220,7 @@ one, and the default is what installs `PinoLogger`.
 **Fix** merge it back in:
 
 ```ts
-Layer.merge(Logger.replace(Logger.defaultLogger, PinoLogger), yourLayer);
+Layer.merge(Logger.layer([PinoLogger]), yourLayer);
 ```
 
 Routes on the plain `router` are unaffected — it does exactly this for you.
@@ -291,16 +274,16 @@ for `{ like }`; free-text `q` conditions you write yourself do not.
 the request failing.
 
 **Fix** add the column to the map. To reject unknown values instead, narrow the schema:
-`sort: S.optional(S.Literal("name", "createdAt"))`.
+`sort: S.optional(S.Literals(["name", "createdAt"]))`.
 
 ### `drizzle-orm` types explode after an install
 
-**Why** `drizzle-orm/effect-postgres` is prerelease and moves with `@effect/sql`. A
-version combination keel has not compiled against usually surfaces as an error deep in
+**Why** `drizzle-orm/effect-postgres` is prerelease and moves with Effect's SQL layer.
+A version combination keel has not compiled against usually surfaces as an error deep in
 Drizzle's builder types.
 
 **Fix** pin the exact versions from the [SQL overview](/keel/sql/), and check
-`pnpm why drizzle-orm @effect/sql` for a transitive bump.
+`pnpm why drizzle-orm effect` for a transitive bump.
 
 ## OpenAPI
 
@@ -314,8 +297,9 @@ the `skipList` patterns — a bare string matches any URL _containing_ it.
 
 ### `openapi-typescript` fails on an unresolvable `$ref`
 
-**Why** `JSONSchema.make` emits `$ref: "#/$defs/Name"`, which resolves against the
-document root where no `$defs` block exists. Keel's `jsonSchemaTransform` inlines them
+**Why** the generated document references reusable definitions as `$ref:
+"#/$defs/Name"`, which resolves against the document root where no `$defs` block
+exists. Keel's `jsonSchemaTransform` inlines them
 to avoid exactly this.
 
 **Fix** make sure the transform is actually installed. `openapiPlugin` does it for you;
@@ -324,16 +308,18 @@ if you registered `@fastify/swagger` yourself, pass
 
 ### A field is documented as the wrong type
 
-**Why** `JSONSchema.make` describes the encoded side, and for a transformation it
-sometimes cannot infer a useful representation — a `S.BigInt`, a `S.Date`, a
-`S.parseJson(…)`.
+**Why** the document describes the encoded side, and Effect 4 rc.109 drops annotations
+attached to a transformation — it keeps only those on leaf schemas. So a
+`S.BigIntFromString`, a `S.DateFromString` or a `S.fromJsonString(…)` cannot currently
+be given a description or a format.
 
-**Fix** annotate:
-
-- ids → `BigIntIdSchema`;
-- JSON query params → `parseJsonParam(schema)`;
-- anything else → `S.annotations({ jsonSchema: { … } })` on the schema, once, where it
-  is defined.
+**Fix** the built-in types are already right: `S.BigIntFromString` documents itself as a
+string with a digits-only pattern, `S.DateFromString` as a string,
+`S.fromJsonString(…)` as a string with `contentMediaType: application/json`. Use
+`BigIntIdSchema` for ids and `parseJsonParam(schema)` for JSON query params, and expect
+the prose and the `contentSchema` structure to be missing until the generator carries
+annotations across transformations. See [the known
+gap](/keel/install/#known-gap-annotations-on-transformations).
 
 ### A route needs two tags
 

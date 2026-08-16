@@ -48,20 +48,20 @@ Start here:
 
 Reference:
 
-| Page                                                                    | What's in it                                                       |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [The shape of an app](https://kylobyte-dev.github.io/keel/app-shape/)   | How the pieces fit together before writing any code                |
-| [Bootstrap](https://kylobyte-dev.github.io/keel/bootstrap/)             | Building the runtime, handing it to keel, wiring Fastify           |
-| [Controllers](https://kylobyte-dev.github.io/keel/controllers/)         | Controllers as Effect services, and what a handler returns         |
-| [Routes](https://kylobyte-dev.github.io/keel/routes/)                   | Route declaration, and routers carrying request context            |
-| [Errors](https://kylobyte-dev.github.io/keel/errors/)                   | Tagged errors mapped to HTTP, and app-specific statuses            |
-| [Schemas at the boundary](https://kylobyte-dev.github.io/keel/schemas/) | Where decoding and encoding happen                                 |
-| [Runtime](https://kylobyte-dev.github.io/keel/runtime/)                 | Pino↔Effect logging, `memoizedConfig`, helpers                     |
-| [OpenAPI](https://kylobyte-dev.github.io/keel/openapi/)                 | Generating the document, serving the reference                     |
-| [SSE](https://kylobyte-dev.github.io/keel/sse/)                         | Server-sent events over an Effect stream                           |
+| Page                                                                    | What's in it                                                            |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [The shape of an app](https://kylobyte-dev.github.io/keel/app-shape/)   | How the pieces fit together before writing any code                     |
+| [Bootstrap](https://kylobyte-dev.github.io/keel/bootstrap/)             | Building the runtime, handing it to keel, wiring Fastify                |
+| [Controllers](https://kylobyte-dev.github.io/keel/controllers/)         | Controllers as Effect services, and what a handler returns              |
+| [Routes](https://kylobyte-dev.github.io/keel/routes/)                   | Route declaration, and routers carrying request context                 |
+| [Errors](https://kylobyte-dev.github.io/keel/errors/)                   | Tagged errors mapped to HTTP, and app-specific statuses                 |
+| [Schemas at the boundary](https://kylobyte-dev.github.io/keel/schemas/) | Where decoding and encoding happen                                      |
+| [Runtime](https://kylobyte-dev.github.io/keel/runtime/)                 | Pino↔Effect logging, `memoizedConfig`, helpers                          |
+| [OpenAPI](https://kylobyte-dev.github.io/keel/openapi/)                 | Generating the document, serving the reference                          |
+| [SSE](https://kylobyte-dev.github.io/keel/sse/)                         | Server-sent events over an Effect stream                                |
 | [SQL](https://kylobyte-dev.github.io/keel/sql/)                         | Drizzle over Effect's SQL layer: ids, repositories, filters, migrations |
-| [Testing](https://kylobyte-dev.github.io/keel/testing/)                 | Unit-testing controllers, and driving routes through `inject`      |
-| [Troubleshooting](https://kylobyte-dev.github.io/keel/troubleshooting/) | Symptom index: the compile errors and runtime surprises, explained |
+| [Testing](https://kylobyte-dev.github.io/keel/testing/)                 | Unit-testing controllers, and driving routes through `inject`           |
+| [Troubleshooting](https://kylobyte-dev.github.io/keel/troubleshooting/) | Symptom index: the compile errors and runtime surprises, explained      |
 
 ## Development
 

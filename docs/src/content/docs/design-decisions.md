@@ -120,7 +120,7 @@ in, `S.encodeUnknown` on the way out. So a `bigint` id can be a `bigint` everywh
 your code and a string on the wire, declared once, converted in two places you never
 touch. TypeBox has no decoded/encoded distinction; Zod's transforms run one way.
 
-The cost is that JSON Schema generation is lossier — `JSONSchema.make` describes the
+The cost is that JSON Schema generation is lossier — the generator describes the
 _encoded_ side and sometimes needs a hint, which is why `BigIntIdSchema` and
 `parseJsonParam` exist at all. That was judged the cheaper problem.
 
@@ -150,27 +150,31 @@ just the conservative one.
 
 ### Why `BigIntIdSchema` and `parseJsonParam` rather than plain schemas?
 
-Both exist to correct what `JSONSchema.make` would otherwise emit.
+Both exist to name a codec correctly once, and to describe it for the reader.
 
-A `S.BigInt` field is a string on the wire, but the generated document describes the
-decoded side and says `integer` — or refuses, since JSON has no 64-bit integer.
-`BigIntIdSchema` is `S.BigInt` plus a `jsonSchema` annotation saying "string".
+A 64-bit id is a string on the wire, and the codec that decodes one is
+`S.BigIntFromString` — plain `S.BigInt` validates a value that already is a `bigint`
+and rejects the string that arrives. `BigIntIdSchema` is the right codec under a name
+that says what it is for, so the choice is made once rather than at every route.
 
-A JSON-encoded query param is the mirror image: `S.parseJson(Schema)` is a string as
-far as the document is concerned, so `?filter={"role":"admin"}` would be documented as
-an opaque string. `parseJsonParam` annotates it with the _inner_ schema, so the reader
-sees the structure while Fastify still validates the decoded object.
+A JSON-encoded query param is the mirror image: `S.fromJsonString(Schema)` is a string
+as far as the document is concerned, so `?filter={"role":"admin"}` reads as an opaque
+string. `parseJsonParam` describes the inner schema through the standard
+`contentSchema` keyword while Fastify still validates the decoded object.
 
-Neither is magic, and neither is required — they are two annotations you would
-otherwise write by hand on every id and every JSON param.
+Neither is magic, and neither is required — they are the schema you would otherwise
+spell out by hand on every id and every JSON param. Both currently lose their
+annotations in the generated document; see [the known
+gap](/keel/install/#known-gap-annotations-on-transformations).
 
 ### Why inline the `$defs` in the OpenAPI document?
 
 Because Effect emits `$ref: "#/$defs/Name"`, and in an OpenAPI document that path does
 not exist.
 
-`JSONSchema.make` hoists reusable definitions into a local `$defs` block and references
-them from the root of _that_ schema. But the schema is nested inside the route's
+The generator hoists reusable definitions into a separate `definitions` map, which
+keel folds back into a local `$defs` block, referenced from the root of _that_
+schema. But the schema is nested inside the route's
 `response` object, so the `#/` prefix resolves against the document root, where no
 `$defs` block was ever written. Scalar tolerates the dangling reference; strict
 consumers like `openapi-typescript` fail on it.
@@ -226,7 +230,7 @@ one path where you have the least control over what the internals say.
 
 Because two copies of `effect` in one process is a bug with no error message.
 
-`Context.Tag` identity is per-module-instance. If keel bundled its own `effect` and
+Service key identity is per-module-instance. If keel bundled its own `effect` and
 your app had another, a service your app provides and a service keel resolves would be
 _different tags with the same name_, and every `yield* SomeService` inside a controller
 would fail to find a provider it can see in the layer. Fastify has the same problem
@@ -238,7 +242,7 @@ warning you see at install time instead of a runtime mystery.
 ### Why are the `/sql` peers pinned to exact versions?
 
 Because `drizzle-orm/effect-postgres` is prerelease and moves in lockstep with
-`@effect/sql`, which moves fast on its own.
+Effect's SQL layer, which moves fast on its own.
 
 A caret range would let a combination keel has never compiled against resolve into your
 app, and the failure mode is a type error deep inside Drizzle's builder types rather
@@ -250,8 +254,8 @@ bump is visible in a changelog rather than in a lockfile diff.
 
 So that the peer dependencies of a feature are only required by the apps that use it.
 
-`/openapi` needs Scalar and `helmet`; `/sql` needs Drizzle and two `@effect/sql`
-packages. Behind a single entry point, importing `controller` would pull the module
+`/openapi` needs Scalar and `helmet`; `/sql` needs Drizzle and the `@effect/sql-pg`
+driver. Behind a single entry point, importing `controller` would pull the module
 graph for all of them and every app would need all of them installed. Separate exports
 keep each optional peer genuinely optional — the module is never loaded if it is never
 imported.

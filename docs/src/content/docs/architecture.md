@@ -48,14 +48,14 @@ One package, six entry points. They are separate because their peer dependencies
 importing `/openapi` should not force an app to install Scalar, and importing keel at
 all should not force it to install Drizzle.
 
-| Entry point | Source         | What lives there                                                                                       | Needs                                          |
-| ----------- | -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| `/http`     | `src/http`     | Type provider, `controller()`, `createKeel`, routers, response and error types, the two global plugins | `fastify`, `effect`                            |
-| `/runtime`  | `src/runtime`  | `pinoInstance`, `PinoLogger`, `memoizedConfig`, `readonly`, `voidMemo`                                 | `effect`, `pino`, `pino-pretty`                |
-| `.`         | `src/index.ts` | Everything from `/http` plus `/runtime` — the import most app files use                                | the above                                      |
-| `/openapi`  | `src/openapi`  | `openapiPlugin`, `createOpenapiMetaPlugin`                                                             | `@fastify/swagger`, Scalar, `helmet`           |
-| `/sse`      | `src/sse`      | `createSseHandlerFactory`                                                                              | `fastify`, `effect`                            |
-| `/sql`      | `src/sql`      | `createSql`, filters, operators, table query params, `paginate`, `snowflakeId`                         | `drizzle-orm`, `@effect/sql`, `@effect/sql-pg` |
+| Entry point | Source         | What lives there                                                                                       | Needs                                |
+| ----------- | -------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------ |
+| `/http`     | `src/http`     | Type provider, `controller()`, `createKeel`, routers, response and error types, the two global plugins | `fastify`, `effect`                  |
+| `/runtime`  | `src/runtime`  | `pinoInstance`, `PinoLogger`, `memoizedConfig`, `readonly`, `voidMemo`                                 | `effect`, `pino`, `pino-pretty`      |
+| `.`         | `src/index.ts` | Everything from `/http` plus `/runtime` — the import most app files use                                | the above                            |
+| `/openapi`  | `src/openapi`  | `openapiPlugin`, `createOpenapiMetaPlugin`                                                             | `@fastify/swagger`, Scalar, `helmet` |
+| `/sse`      | `src/sse`      | `createSseHandlerFactory`                                                                              | `fastify`, `effect`                  |
+| `/sql`      | `src/sql`      | `createSql`, filters, operators, table query params, `paginate`, `snowflakeId`                         | `drizzle-orm`, `@effect/sql-pg`      |
 
 Inside `/http`, the split is by responsibility rather than by feature:
 
@@ -186,7 +186,7 @@ instance for the process; acquired at boot and released by `AppRuntime.dispose`.
 second instance would be wrong (or expensive), it goes here.
 
 ```ts
-const layer = Layer.mergeAll(DatabaseService.Default, RedisService.Default);
+const layer = Layer.mergeAll(DatabaseService.layer, RedisService.layer);
 export const AppRuntime = ManagedRuntime.make(layer);
 ```
 
@@ -212,7 +212,7 @@ not a business outcome.
 
 **Controller layers** — the second argument to `controller()`. Also per request, but
 scoped to the one controller, and visible in the controller's own type. Their purpose
-is to keep a feature's services out of the global layer: `UserService.Default` does
+is to keep a feature's services out of the global layer: `UserService.layer` does
 not need to exist for a route that never touches users.
 
 The rule of thumb: **shared or expensive → runtime; derived from the request → router;
@@ -237,8 +237,8 @@ export interface EffectTypeProvider extends FastifyTypeProvider {
 }
 ```
 
-That single mapping is why a `S.BigInt` in a params schema arrives in your controller
-as a `bigint` while travelling as a string: `S.Schema.Type` is the decoded side,
+That single mapping is why a `S.BigIntFromString` in a params schema arrives in your
+controller as a `bigint` while travelling as a string: `S.Schema.Type` is the decoded side,
 `S.Schema.Encoded` is the wire side, and the compilers do the conversion at runtime in
 the same two places.
 

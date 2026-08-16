@@ -160,7 +160,7 @@ what forces every route to carry a `401` schema.
 `router` is the plain factory: no request context beyond the Pino logger, and no
 extra errors. Use it for public routes.
 
-Note the `Logger.replace(…, PinoLogger)` merged into the layer above: supplying your own
+Note the `Logger.layer([PinoLogger])` merged into the layer above: supplying your own
 request provider replaces the default one, and the default is what installs the Pino
 logger. Leave it out and Effect logs from that router's routes stop going to your Pino
 stream.

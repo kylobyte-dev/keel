@@ -102,44 +102,50 @@ variable throws there, at boot, instead of becoming a 500 on some unlucky reques
 
 ## 4. Write a service
 
-Nothing about this file is keel-specific: it is an ordinary `Effect.Service`. That is
+Nothing about this file is keel-specific: it is an ordinary Effect service. That is
 the point — your business logic does not import the framework.
 
 ```ts
 // src/modules/notes/notes.service.ts
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 import type { CreateNoteBody, Note } from "./notes.schemas.ts";
 
-export class NotesService extends Effect.Service<NotesService>()(
-  "NotesService",
-  {
-    effect: Effect.gen(function* () {
-      const notes = new Map<bigint, Note>();
-      let nextId = 1n;
+const make = Effect.gen(function* () {
+  const notes = new Map<bigint, Note>();
+  let nextId = 1n;
 
-      return {
-        list: () => Effect.succeed([...notes.values()]),
+  return {
+    list: () => Effect.succeed([...notes.values()]),
 
-        findById: (id: bigint) => Effect.succeed(notes.get(id) ?? null),
+    findById: (id: bigint) => Effect.succeed(notes.get(id) ?? null),
 
-        create: (input: CreateNoteBody) =>
-          Effect.sync(() => {
-            const note: Note = {
-              id: nextId++,
-              ...input,
-              createdAt: new Date(),
-            };
-            notes.set(note.id, note);
+    create: (input: CreateNoteBody) =>
+      Effect.sync(() => {
+        const note: Note = {
+          id: nextId++,
+          ...input,
+          createdAt: new Date(),
+        };
+        notes.set(note.id, note);
 
-            return note;
-          }),
+        return note;
+      }),
 
-        remove: (id: bigint) => Effect.sync(() => notes.delete(id)),
-      };
-    }),
-  },
-) {}
+    remove: (id: bigint) => Effect.sync(() => notes.delete(id)),
+  };
+});
+
+export class NotesService extends Context.Service<
+  NotesService,
+  Effect.Success<typeof make>
+>()("NotesService") {
+  static readonly layer = Layer.effect(NotesService, make);
+}
 ```
+
+The shape is written out by the `Context.Service` type parameters — here derived from
+the effect that builds it, so the two cannot drift — and the layer that provides it is
+a static on the class.
 
 An in-memory `Map` stands in for a database. It also makes one decision concrete: this
 service **holds state**, so there must be exactly one of it for the whole process. That
@@ -152,7 +158,7 @@ is what decides where it goes in the next step.
 import { Layer, ManagedRuntime } from "effect";
 import { NotesService } from "../../modules/notes/notes.service.ts";
 
-const layer = Layer.mergeAll(NotesService.Default);
+const layer = Layer.mergeAll(NotesService.layer);
 
 export const AppRuntime = ManagedRuntime.make(layer);
 ```
@@ -212,9 +218,7 @@ JSON Schema and validate nothing.
 import { BigIntIdSchema } from "@kylobyte/keel";
 import { Schema as S } from "effect";
 
-const IsoDate = S.Date.pipe(
-  S.annotations({ jsonSchema: { type: "string", format: "date-time" } }),
-);
+const IsoDate = S.DateFromString;
 
 export const NoteSchema = S.Struct({
   id: BigIntIdSchema,
@@ -236,14 +240,19 @@ document are then the same artifact and cannot drift apart.
 
 Two of these lines are about the _encoded_ side — the shape that actually travels:
 
-- `BigIntIdSchema` is `S.BigInt` with an annotation. Your code sees `bigint`, the wire
-  sees `"1"`, and the document says `string` rather than trying to describe a 64-bit
-  integer JSON has no room for.
-- `IsoDate` annotates `S.Date` the same way, so the document says `date-time` instead
-  of describing the decoded `Date` object.
+- `BigIntIdSchema` wraps `S.BigIntFromString`. Your code sees `bigint`, the wire sees
+  `"1"`, and the document says `string` rather than trying to describe a 64-bit integer
+  JSON has no room for.
+- `IsoDate` is `S.DateFromString`, which decodes the ISO string on the way in and
+  encodes a `Date` back out.
+
+Note the `FromString` suffix on both. Under Effect 4 plain `S.BigInt` and `S.Date`
+_validate_ a value that already has that type rather than decoding the string that
+arrives over HTTP — and both spellings type-check, so the wrong one fails only when a
+request hits it.
 
 That decoded/encoded distinction is the core of
-[Schemas at the boundary](/keel/schemas/), and the reason annotations show up at all.
+[Schemas at the boundary](/keel/schemas/).
 
 ## 9. Write the controllers
 
@@ -303,7 +312,7 @@ export const deleteNote = controller(({ params }: Params<{ id: bigint }>) =>
 Four things to notice, because each is a rule you will keep using:
 
 1. **No second argument.** The layer list is optional, and `NotesService` already lives
-   in the runtime — adding `[NotesService.Default]` here would build a second, empty
+   in the runtime — adding `[NotesService.layer]` here would build a second, empty
    one per request.
 2. **The input type is a contract.** `Params<{ id: bigint }>` says the route's `params`
    schema must decode to a `bigint`. Declare a field the schema does not produce and

@@ -24,7 +24,7 @@ src/
 ├── runtime/        # Pino↔Effect logging, memoizedConfig, the two small helpers
 ├── openapi/        # swagger + Scalar wiring
 ├── sse/            # the SSE handler factory
-└── sql/            # Drizzle over @effect/sql: repositories, filters, pagination
+└── sql/            # Drizzle over Effect's SQL layer: repositories, filters, pagination
 docs/               # the Starlight site — a separate project, its own lockfile
 tsconfig.main.json  # the shared config, also shipped to consumers
 ```
@@ -43,7 +43,7 @@ point — the `exports` map plus the tables in `README.md` and
 
 **Peer dependencies stay peers.** Nothing that could end up duplicated in a consumer's
 process may become a dependency: `effect` and `fastify` most of all, since two copies of
-either break `Context.Tag` identity and Fastify's plugin symbols respectively. The
+either break service key identity and Fastify's plugin symbols respectively. The
 `/sql` peers are pinned to exact versions rather than ranges, and bumping them is a
 release. The reasoning for both is on the
 [Design decisions](/keel/design-decisions/#packaging) page.

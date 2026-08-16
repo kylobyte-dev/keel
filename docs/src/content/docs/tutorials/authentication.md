@@ -90,14 +90,14 @@ property in a hook is slower and does not type-check against the module augmenta
 // src/shared/app/current-user.ts
 import { Context } from "effect";
 
-export class CurrentUser extends Context.Tag("CurrentUser")<
+export class CurrentUser extends Context.Service<
   CurrentUser,
   {
     readonly id: bigint;
     readonly email: string | null;
     readonly permissions: ReadonlySet<string>;
   }
->() {}
+>()("CurrentUser") {}
 ```
 
 Note what this type is _not_: it has no `sub`, no token, no header, no scope string. The
@@ -124,7 +124,7 @@ export const { router, createRouter, createRouterWithErrors } =
 export const authenticatedRouter = createRouterWithErrors<UnauthorizedError>()(
   (request) =>
     Layer.merge(
-      Logger.replace(Logger.defaultLogger, PinoLogger),
+      Logger.layer([PinoLogger]),
       Layer.effect(
         CurrentUser,
         Effect.gen(function* () {
@@ -137,7 +137,7 @@ export const authenticatedRouter = createRouterWithErrors<UnauthorizedError>()(
             permissions: new Set(user.roles.flatMap(permissionsFor)),
           };
         }).pipe(Effect.orDie),
-      ).pipe(Layer.provide(UserService.Default)),
+      ).pipe(Layer.provide(UserService.layer)),
     ),
   async (app) => {
     await app.register(authPlugin);
@@ -162,7 +162,7 @@ Read it as its four parts:
    router's own scope, before any routes are defined, so the hook covers this router and
    nothing else.
 
-`Logger.replace(…, PinoLogger)` is merged in because supplying your own request provider
+`Logger.layer([PinoLogger])` is merged in because supplying your own request provider
 replaces the default one, and the default is what installs the Pino logger. Forget it
 and Effect logs from these routes go to Effect's default logger instead of your Pino
 stream.
@@ -184,7 +184,7 @@ export const getMe = controller(
 
       return yield* users.findById(id);
     }),
-  [UserService.Default],
+  [UserService.layer],
 );
 
 export const listAllUsers = controller(
@@ -200,7 +200,7 @@ export const listAllUsers = controller(
 
       return yield* users.list();
     }),
-  [UserService.Default],
+  [UserService.layer],
 );
 ```
 

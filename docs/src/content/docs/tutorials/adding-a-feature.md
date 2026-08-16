@@ -15,7 +15,7 @@ what would go wrong if you skipped it.
 a Postgres you can reach, and the `/sql` peers:
 
 ```bash
-pnpm add drizzle-orm@1.0.0-beta.22 @effect/sql@0.48.6 @effect/sql-pg@0.49.7 snowyflake@2.0.1
+pnpm add drizzle-orm@1.0.0-rc.5-ab785fc @effect/sql-pg@4.0.0-rc.109 snowyflake@2.0.1
 pnpm add -D drizzle-kit
 ```
 
@@ -53,26 +53,28 @@ the pool is configured, and which `pg` type parsers are overridden:
 // src/services/database/database.service.ts
 import { PgClient } from "@effect/sql-pg";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
-import { Config, Effect } from "effect";
+import { Config, Context, Effect, Layer } from "effect";
 
 const PgClientLive = PgClient.layerConfig({
   url: Config.redacted("DATABASE_URL"),
 });
 
-export class DatabaseService extends Effect.Service<DatabaseService>()(
-  "DatabaseService",
-  {
-    effect: PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
-    dependencies: [PgClientLive],
-  },
-) {}
+export class DatabaseService extends Context.Service<
+  DatabaseService,
+  PgDrizzle.EffectPgDatabase & { $client: PgClient.PgClient }
+>()("DatabaseService") {
+  static readonly layer = Layer.effect(
+    DatabaseService,
+    PgDrizzle.make().pipe(Effect.provide(PgDrizzle.DefaultServices)),
+  ).pipe(Layer.provide(PgClientLive));
+}
 ```
 
 Add it to the runtime layer — a connection pool is the textbook singleton:
 
 ```ts
 // src/shared/app/runtime.ts
-const layer = Layer.mergeAll(DatabaseService.Default /* , … */);
+const layer = Layer.mergeAll(DatabaseService.layer /* , … */);
 ```
 
 Because it is in the runtime layer, `AppRuntime.runPromise(Effect.void)` at boot now
@@ -143,18 +145,21 @@ Read the generated SQL before applying it. Every time.
 
 ```ts
 // src/modules/product/db/product.repository.ts
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { DatabaseService } from "../../../services/database/database.service.ts";
 import { buildRepository } from "../../../shared/app/sql.ts";
 import { products } from "./product.table.ts";
 
-export class ProductRepositoryService extends Effect.Service<ProductRepositoryService>()(
-  "repository/Product",
-  {
-    effect: buildRepository(products),
-    dependencies: [DatabaseService.Default],
-  },
-) {}
+const make = buildRepository(products);
+
+export class ProductRepositoryService extends Context.Service<
+  ProductRepositoryService,
+  Effect.Success<typeof make>
+>()("repository/Product") {
+  static readonly layer = Layer.effect(ProductRepositoryService, make).pipe(
+    Layer.provide(DatabaseService.layer),
+  );
+}
 ```
 
 That is the whole file. `buildRepository` gives you `insert`, `update` and `delete`
@@ -207,51 +212,54 @@ const sortable = {
 
 export const ProductQuerySchema = S.Struct({
   ...tableQueryFields,
-  sort: S.optional(S.Literal("name", "price", "createdAt")),
+  sort: S.optional(S.Literals(["name", "price", "createdAt"])),
   filter: S.optional(parseJsonParam(productFilter.schema)),
 });
 export type ProductQuery = S.Schema.Type<typeof ProductQuerySchema>;
 
-export class ProductQueryService extends Effect.Service<ProductQueryService>()(
-  "query/Product",
-  {
-    effect: Effect.gen(function* () {
-      const database = yield* DatabaseService;
+const makeQuery = Effect.gen(function* () {
+  const database = yield* DatabaseService;
 
-      return {
-        listPaginated: (query: ProductQuery) => {
-          const where = productFilter.buildWhere(query.filter ?? {}, [
-            query.q
-              ? or(
-                  ilike(products.name, `%${escapeWildcards(query.q)}%`),
-                  ilike(products.sku, `%${escapeWildcards(query.q)}%`),
-                )
-              : undefined,
-          ]);
+  return {
+    listPaginated: (query: ProductQuery) => {
+      const where = productFilter.buildWhere(query.filter ?? {}, [
+        query.q
+          ? or(
+              ilike(products.name, `%${escapeWildcards(query.q)}%`),
+              ilike(products.sku, `%${escapeWildcards(query.q)}%`),
+            )
+          : undefined,
+      ]);
 
-          return paginate<DbProduct>(
-            database,
-            database
-              .select()
-              .from(products)
-              .where(where)
-              .orderBy(buildOrderBy(sortable, query) ?? asc(products.id)),
-            query,
-          );
-        },
+      return paginate<DbProduct>(
+        database,
+        database
+          .select()
+          .from(products)
+          .where(where)
+          .orderBy(buildOrderBy(sortable, query) ?? asc(products.id)),
+        query,
+      );
+    },
 
-        findById: (id: bigint) =>
-          database
-            .select()
-            .from(products)
-            .where(eq(products.id, id))
-            .limit(1)
-            .pipe(Effect.map((rows) => rows[0] ?? null)),
-      };
-    }),
-    dependencies: [DatabaseService.Default],
-  },
-) {}
+    findById: (id: bigint) =>
+      database
+        .select()
+        .from(products)
+        .where(eq(products.id, id))
+        .limit(1)
+        .pipe(Effect.map((rows) => rows[0] ?? null)),
+  };
+});
+
+export class ProductQueryService extends Context.Service<
+  ProductQueryService,
+  Effect.Success<typeof makeQuery>
+>()("query/Product") {
+  static readonly layer = Layer.effect(ProductQueryService, makeQuery).pipe(
+    Layer.provide(DatabaseService.layer),
+  );
+}
 ```
 
 Four decisions in that file are the ones that repeat for every resource:
@@ -288,9 +296,7 @@ export const ProductSchema = S.Struct({
   sku: S.String,
   price: S.String,
   active: S.Boolean,
-  createdAt: S.Date.pipe(
-    S.annotations({ jsonSchema: { type: "string", format: "date-time" } }),
-  ),
+  createdAt: S.DateFromString,
 });
 export type Product = S.Schema.Type<typeof ProductSchema>;
 
@@ -312,47 +318,50 @@ Business logic goes here, and this file imports nothing from keel:
 
 ```ts
 // src/modules/product/product.service.ts
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { ConflictError } from "@kylobyte/keel";
 import { DatabaseService } from "../../services/database/database.service.ts";
 import { ProductRepositoryService } from "./db/product.repository.ts";
 import { ProductQueryService } from "./product.queries.ts";
 import type { CreateProductBody } from "./product.schemas.ts";
 
-export class ProductService extends Effect.Service<ProductService>()(
-  "ProductService",
-  {
-    effect: Effect.gen(function* () {
-      const database = yield* DatabaseService;
-      const repository = yield* ProductRepositoryService;
-      const queries = yield* ProductQueryService;
+const make = Effect.gen(function* () {
+  const database = yield* DatabaseService;
+  const repository = yield* ProductRepositoryService;
+  const queries = yield* ProductQueryService;
 
-      return {
-        list: queries.listPaginated,
-        findById: queries.findById,
+  return {
+    list: queries.listPaginated,
+    findById: queries.findById,
 
-        create: (body: CreateProductBody) =>
-          database.transaction((transaction) =>
-            Effect.gen(function* () {
-              const product = yield* repository
-                .withTx(transaction)
-                .insert(body);
+    create: (body: CreateProductBody) =>
+      database.transaction((transaction) =>
+        Effect.gen(function* () {
+          const product = yield* repository.withTx(transaction).insert(body);
 
-              if (!product)
-                return yield* new ConflictError("Product already exists");
+          if (!product)
+            return yield* new ConflictError("Product already exists");
 
-              return product;
-            }),
-          ),
-      };
-    }),
-    dependencies: [
-      DatabaseService.Default,
-      ProductRepositoryService.Default,
-      ProductQueryService.Default,
-    ],
-  },
-) {}
+          return product;
+        }),
+      ),
+  };
+});
+
+export class ProductService extends Context.Service<
+  ProductService,
+  Effect.Success<typeof make>
+>()("ProductService") {
+  static readonly layer = Layer.effect(ProductService, make).pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        DatabaseService.layer,
+        ProductRepositoryService.layer,
+        ProductQueryService.layer,
+      ),
+    ),
+  );
+}
 ```
 
 One import from keel — `ConflictError` — because the status is a business decision the
@@ -387,7 +396,7 @@ export const listProducts = controller(
 
       return yield* products.list(querystring);
     }),
-  [ProductService.Default],
+  [ProductService.layer],
 );
 
 export const getProduct = controller(
@@ -400,7 +409,7 @@ export const getProduct = controller(
 
       return product;
     }),
-  [ProductService.Default],
+  [ProductService.layer],
 );
 
 export const createProduct = controller(
@@ -410,14 +419,14 @@ export const createProduct = controller(
 
       return new HttpCreated(yield* products.create(body));
     }),
-  [ProductService.Default],
+  [ProductService.layer],
 );
 ```
 
-`[ProductService.Default]` is the layer list, and this is the case it exists for.
+`[ProductService.layer]` is the layer list, and this is the case it exists for.
 `ProductService` is cheap to build and only these routes use it, so it does not belong
 in the runtime layer — the runtime keeps the connection pool, and this gets built per
-request on top of it. Note that `ProductService.Default` already carries its own
+request on top of it. Note that `ProductService.layer` already carries its own
 `dependencies`, so listing it once is enough.
 
 Compare with `DatabaseService`, which is in the runtime: one pool for the process,
@@ -577,7 +586,7 @@ For the next feature, in order:
 
 1. **Table** — Drizzle, snake_case column names spelled out, then `migrate:diff` and
    read the SQL.
-2. **Repository** — `buildRepository(table)` as an `Effect.Service`.
+2. **Repository** — `buildRepository(table)` behind a `Context.Service`.
 3. **Queries** — `defineFilter`, the sortable allow-list, `paginate`.
 4. **Schemas** — the HTTP resource, separate from the row, annotated where the encoded
    type needs a hint.
