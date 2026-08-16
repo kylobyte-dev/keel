@@ -93,25 +93,36 @@ jobs:
           )" || status="000"
 
           # The API answers `{ "error": ..., "message": ... }` on every failure,
-          # and the message is the only thing that says which one it was.
+          # and the code in `error` is what separates the cases the status alone
+          # runs together. `|| true` covers a body that is not JSON at all.
           echo "HTTP $status"
           cat "$body"
           echo
+          code="$(jq --raw-output '.error // empty' "$body" 2>/dev/null || true)"
 
-          case "$status" in
-            200)
-              echo "::notice::Context7 refresh started."
-              ;;
-            # A rate limit, an outage on their side, or an unreachable host
-            # resolves itself: the library still gets picked up by the
-            # automatic cycle.
-            429 | 5?? | 000)
-              echo "::warning::Refresh not started (HTTP $status), leaving it to the automatic cycle."
-              ;;
-            # 401 means the key is wrong, 404 means the library id is. Neither
-            # fixes itself, so neither passes quietly.
-            *)
-              echo "::error::Refresh rejected (HTTP $status)."
-              exit 1
-              ;;
-          esac
+          if [ "$status" = "200" ]; then
+            echo "::notice::Context7 refresh started."
+
+          # Context7 accepts one refresh per project every 10 days and answers
+          # 400 too-early in between, so this is where most pushes to main land.
+          # It is the throttle working, not a failure.
+          elif [ "$code" = "too-early" ]; then
+            echo "::notice::Context7 refreshed the project recently, nothing to do."
+
+          else
+            case "$status" in
+              # A rate limit, an outage on their side, or an unreachable host
+              # resolves itself: the library still gets picked up by the
+              # automatic cycle.
+              429 | 5?? | 000)
+                echo "::warning::Refresh not started (HTTP $status), leaving it to the automatic cycle."
+                ;;
+              # 401 means the key is wrong, 404 means the library id is, and the
+              # remaining 400s mean the request is. None fix themselves, so none
+              # pass quietly.
+              *)
+                echo "::error::Refresh rejected (HTTP $status${code:+, $code})."
+                exit 1
+                ;;
+            esac
+          fi
