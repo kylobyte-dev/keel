@@ -13,7 +13,7 @@ pnpm add snowyflake@2.0.1   # only if you use snowflakeId()
 ```
 
 Those are exact prerelease versions on purpose — see
-[Install](/keel/install/#the-02-line-needs-exact-prerelease-peers) for the
+[Install](/keel/install/#the-beta-line-needs-exact-prerelease-peers) for the
 combination that does not work and the error it produces.
 
 `pg` comes along as a dependency of `@effect/sql-pg`; install it directly only if
