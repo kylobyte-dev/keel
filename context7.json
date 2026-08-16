@@ -1,5 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/kylobyte-dev/keel",
+  "public_key": "pk_m3W5bcHNX2gda8DzCwKzf",
   "projectTitle": "keel",
   "description": "Opinionated Fastify 5 + Effect backend framework: Effect Schema as type provider, controllers as Effect services, tagged errors mapped to HTTP, Pino↔Effect logging, SSE.",
   "folders": ["docs/src/content/docs"],
