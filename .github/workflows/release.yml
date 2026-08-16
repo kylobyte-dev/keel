@@ -1,7 +1,17 @@
 name: Release
 
 # Manual only: the workflow owns the whole release — it bumps the version,
-# publishes, and only then writes the commit and the tag to main.
+# publishes, and only then writes the commit and the tag back to the branch it
+# released from.
+#
+# Two releases run in parallel off this one workflow:
+#
+#   ref=main, tag=latest   the stable line       (Effect 3)
+#   ref=v4,   tag=beta     the 0.2 prerelease    (Effect 4)
+#
+# `tag` is not optional cosmetics: npm ignores the prerelease part of a version
+# when choosing a dist-tag, so publishing 0.2.0-beta.0 without `--tag beta`
+# would make it the default install for everyone.
 #
 # There is no npm token anywhere. The package is published through a trusted
 # publisher, whose configuration on npm must match what this workflow claims:
@@ -22,6 +32,16 @@ on:
         type: string
         default: patch
         required: true
+      ref:
+        description: "branch to release from — the release commit and tag go back to it"
+        type: string
+        default: main
+        required: true
+      tag:
+        description: "npm dist-tag: latest for the stable line, beta for a prerelease"
+        type: string
+        default: latest
+        required: true
 
 concurrency:
   group: release
@@ -38,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ inputs.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -90,15 +110,33 @@ jobs:
           npm version "${{ inputs.bump }}" --message "chore: release v%s"
           echo "released=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      - run: npm publish --provenance
+      # The one mistake that cannot be undone by releasing again: a prerelease
+      # landing on `latest` silently becomes what everyone installs, and moving
+      # a dist-tag back does not un-install it from the lockfiles that caught it.
+      # Checked after the bump, because `bump` may be a keyword rather than the
+      # literal version.
+      - name: Refuse to publish a prerelease as latest
+        run: |
+          version="${{ steps.bump.outputs.released }}"
+          tag="${{ inputs.tag }}"
+          if [[ "$version" == *-* && "$tag" == "latest" ]]; then
+            echo "::error::$version is a prerelease; publishing it as 'latest' would make it the default install. Re-run with tag=beta."
+            exit 1
+          fi
+          if [[ "$version" != *-* && "$tag" != "latest" ]]; then
+            echo "::warning::$version is a stable version being published under the '$tag' tag; 'latest' will keep pointing at the previous release."
+          fi
 
-      # Last, so a rejected publish leaves main exactly as it was. If this step
-      # is the one that fails, the version is already published and immutable:
-      # push the release commit and its tag by hand rather than releasing again.
+      - run: npm publish --provenance --tag "${{ inputs.tag }}"
+
+      # Last, so a rejected publish leaves the branch exactly as it was. If this
+      # step is the one that fails, the version is already published and
+      # immutable: push the release commit and its tag by hand rather than
+      # releasing again.
       - name: Push the release commit and its tag
-        run: git push --follow-tags origin main
+        run: git push --follow-tags origin "HEAD:${{ inputs.ref }}"
 
       - name: Summary
         run: |
-          echo "Published \`@kylobyte/keel@${{ steps.bump.outputs.released }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published \`@kylobyte/keel@${{ steps.bump.outputs.released }}\` from \`${{ inputs.ref }}\` under the \`${{ inputs.tag }}\` tag" >> "$GITHUB_STEP_SUMMARY"
           echo "https://www.npmjs.com/package/@kylobyte/keel/v/${{ steps.bump.outputs.released }}" >> "$GITHUB_STEP_SUMMARY"
