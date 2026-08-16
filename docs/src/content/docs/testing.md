@@ -73,3 +73,7 @@ expect(response.json()).toEqual({ id: "1", name: "Ada", email: null });
 
 Note the id: `inject` gives you the encoded body, so this is also where you catch a
 schema whose wire format is not what the client expects.
+
+Both tutorials end with tests of both kinds against the code they just built —
+[Your first app](/keel/tutorials/first-app/#15-add-a-test) and
+[Adding a feature](/keel/tutorials/adding-a-feature/#step-10--test-it).

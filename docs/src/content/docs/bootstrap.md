@@ -6,6 +6,11 @@ description: "Build the runtime, hand it to keel, and wire Fastify — plugins, 
 Keel never owns the application runtime. Each app builds its own `ManagedRuntime` and
 hands it to `createKeel`, which closes over it and returns the router helpers; the
 runtime's context flows into every controller's requirements from there.
+([Why](/keel/design-decisions/#why-does-the-app-own-the-managedruntime) — the answer is
+what makes the compile-time checks possible at all.)
+
+This page is the reference for each piece. To assemble them in order, from an empty
+directory, follow [Your first app](/keel/tutorials/first-app/) instead.
 
 ```ts
 // shared/app/effect/runtime.ts
@@ -60,7 +65,9 @@ route definition — that inference is the point of the whole design.
 
 Two global plugins are mandatory, and both must be registered before any router:
 `effectProviderPlugin` installs Effect Schema as the validator and serializer, and
-`errorHandlerPlugin` catches everything raised outside the Effect pipeline.
+`errorHandlerPlugin` catches everything raised outside the Effect pipeline. The order
+is not a style preference — Fastify reads the compilers when a route is _added_, so a
+router registered first silently validates nothing.
 
 ```ts
 // server/plugins/effect.global.ts

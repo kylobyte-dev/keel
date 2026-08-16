@@ -33,6 +33,13 @@ plugin or hook — is caught by `errorHandlerPlugin`:
   that status;
 - anything else → 500, logged in full.
 
+A failure raised _inside_ the Effect pipeline takes the other path, and there is one
+edge worth knowing: the mapping inspects a plain `Fail` cause, so a tagged error
+escaping a concurrent combinator (`Effect.all` with `concurrency`, `Effect.race`)
+arrives wrapped and falls through to the 500 branch. See
+[Troubleshooting](/keel/troubleshooting/#a-tagged-error-came-back-as-500-instead-of-its-own-status)
+for the one-line fix.
+
 One consequence worth knowing: when the route declares a response schema for that
 status, the body is encoded through it before it goes out, and `HttpErrorSchema` keeps
 only `message`. A 400 from validation reaches the client as `{"message":"Validation
@@ -84,3 +91,8 @@ export const errorsSchemas = makeErrorsSchemas<HttpError["statusCode"] | 502>({
 
 Import that helper instead of keel's throughout the app, and `errorsSchemas([502])`
 starts type-checking.
+
+Both halves are required and neither implies the other — the mapper is a function on
+values, the provider a function on types, and TypeScript will not run the former at
+type level. [Why they cannot be
+unified](/keel/design-decisions/#why-do-app-specific-statuses-need-both-a-mapper-and-a-type-provider).

@@ -11,7 +11,8 @@ transformation happens in one place.
 
 Serialization is strict. A response that does not match its schema throws
 `ResponseSerializationError` (500) with the parse error logged, rather than sending a
-body the OpenAPI document does not describe.
+body the OpenAPI document does not describe — loud and early, [by
+design](/keel/design-decisions/#why-is-serialization-strict-enough-to-500-on-a-mismatch).
 
 Two helpers exist because JSON Schema generation needs a hint:
 

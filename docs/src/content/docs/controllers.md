@@ -63,6 +63,11 @@ dependency goes:
   per request, which is what you want for something cheap that closes over
   request-scoped state.
 
+Getting that split wrong compiles cleanly and misbehaves later — a stateful service in
+a controller's layer list is rebuilt, empty, on every request. The third scope (the
+router's request provider) and the rule for choosing between all three are in
+[Architecture](/keel/architecture/#three-places-a-dependency-can-live).
+
 `controller()` returns two handlers:
 
 | Property                     | What it is                                             |
@@ -86,3 +91,6 @@ The status is not a runtime detail: the response schema of the route is derived 
 the controller's return type, so a controller that can return `HttpCreated` forces the
 route to declare a `201` schema (`204` pairs with `S.Void`). A union of returns —
 `Effect<User | HttpNoContent>` — requires both keys.
+
+How that derivation works, and what it does _not_ check, is in
+[Deriving a route's response schema](/keel/architecture/#deriving-a-routes-response-schema).

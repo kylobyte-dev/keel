@@ -7,6 +7,8 @@ description: "Repositories as Effect services, and transactions that roll back o
 table's `id` column. Reads — including simple ID lookups — belong in feature-specific
 query services that use the database service directly, where the projection and the
 joins stay visible at the call site.
+([Why](/keel/design-decisions/#why-are-repositories-write-only) — the generic read is
+the one that is always almost right.)
 
 ```ts
 // modules/user/db/user.repository.ts

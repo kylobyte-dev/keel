@@ -47,3 +47,8 @@ import { DatabaseService } from "../../services/database/database.service.ts";
 
 export const { buildRepository } = createSql(DatabaseService);
 ```
+
+The pages that follow are the reference for each piece.
+[Adding a feature](/keel/tutorials/adding-a-feature/) uses all of them at once, in
+order, to build one complete module — start there if you would rather see the shape
+before the details.
