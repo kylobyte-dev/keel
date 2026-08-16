@@ -576,10 +576,10 @@ import { NotesService } from "./notes.service.ts";
 
 const note = { id: 1n, title: "First", body: "Hello", createdAt: new Date(0) };
 
-const notesService = (overrides: Partial<NotesService> = {}) =>
+const notesService = (overrides: Partial<typeof NotesService.Service> = {}) =>
   Layer.succeed(
     NotesService,
-    NotesService.make({
+    NotesService.of({
       list: () => Effect.succeed([note]),
       findById: () => Effect.succeed(note),
       create: () => Effect.succeed(note),

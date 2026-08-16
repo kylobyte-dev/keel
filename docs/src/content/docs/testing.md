@@ -15,10 +15,10 @@ import { NotFoundError } from "@kylobyte/keel";
 import { getUser } from "./user.controller.ts";
 import { UserService } from "./user.service.ts";
 
-const makeUserService = (overrides: Partial<UserService> = {}) =>
+const makeUserService = (overrides: Partial<typeof UserService.Service> = {}) =>
   Layer.succeed(
     UserService,
-    UserService.make({
+    UserService.of({
       findById: () => Effect.succeed(mockUser),
       ...overrides,
     }),
@@ -50,6 +50,17 @@ describe("getUser", () => {
   });
 });
 ```
+
+Two details in that helper are easy to get wrong, and both are compile errors
+rather than silent ones:
+
+- the builder is **`of`**, not `make`. Effect 4's `Context.Service` exposes
+  `of`, `context`, `use` and `useSync`; `make` belonged to Effect 3's
+  `Effect.Service`;
+- the overrides are typed `Partial<typeof UserService.Service>`, not
+  `Partial<UserService>`. The class _instance_ type is the key's metadata — its
+  type id, its string key and its shape — so `Partial<UserService>` accepts none
+  of the service's own methods.
 
 Request-scoped context is provided the same way: `Effect.provideService(CurrentUser, …)`
 for a controller that reads the caller.

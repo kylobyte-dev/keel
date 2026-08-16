@@ -45,6 +45,25 @@ describe("tableQueryFields", () => {
   it("rejects a direction that is neither asc nor desc", () => {
     expect(() => decodeQuery({ dir: "sideways" })).toThrow();
   });
+
+  it("rejects null for an absent parameter", () => {
+    expect(() => decodeQuery({ sort: null })).toThrow();
+    expect(() => decodeQuery({ q: null })).toThrow();
+  });
+
+  // The decoder above rejects null, so the document must not offer it. `S.optional`
+  // would advertise `anyOf: [T, null]` on every one of these fields.
+  it("does not document a null branch for the fields without a default", () => {
+    const properties = S.toJsonSchemaDocument(TableQuerySchema).schema
+      .properties as Record<string, unknown>;
+
+    expect(properties.sort).toStrictEqual({ type: "string" });
+    expect(properties.q).toStrictEqual({ type: "string" });
+    expect(properties.dir).toStrictEqual({
+      type: "string",
+      enum: ["asc", "desc"],
+    });
+  });
 });
 
 describe("buildOrderBy", () => {

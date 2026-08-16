@@ -212,8 +212,8 @@ const sortable = {
 
 export const ProductQuerySchema = S.Struct({
   ...tableQueryFields,
-  sort: S.optional(S.Literals(["name", "price", "createdAt"])),
-  filter: S.optional(parseJsonParam(productFilter.schema)),
+  sort: S.optionalKey(S.Literals(["name", "price", "createdAt"])),
+  filter: S.optionalKey(parseJsonParam(productFilter.schema)),
 });
 export type ProductQuery = S.Schema.Type<typeof ProductQuerySchema>;
 
@@ -527,10 +527,12 @@ const product = {
   createdAt: new Date(0),
 };
 
-const productService = (overrides: Partial<ProductService> = {}) =>
+const productService = (
+  overrides: Partial<typeof ProductService.Service> = {},
+) =>
   Layer.succeed(
     ProductService,
-    ProductService.make({
+    ProductService.of({
       list: () =>
         Effect.succeed({ items: [product], total: 1, page: 1, pageSize: 20 }),
       findById: () => Effect.succeed(product),

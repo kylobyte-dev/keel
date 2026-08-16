@@ -80,5 +80,12 @@ helpers annotate a transformation, so their OpenAPI output degrades:
 `parseJsonParam` the structure of the object it carries. Decoding and encoding are
 unaffected — the wire contract is right, the document is just less descriptive.
 
+A second generator quirk works the other way round, overstating rather than
+understating: a schema carrying a decoding default (`S.withDecodingDefaultType`)
+is documented with a `null` branch the decoder rejects. `page` and `pageSize` in
+`tableQueryFields` are the two fields keel ships in that shape. The related
+`S.optional` case is avoidable and covered in [Schemas at the
+boundary](/keel/schemas/#two-effect-4-defaults-that-leak-onto-the-wire).
+
 Installed? [Your first app](/keel/tutorials/first-app/) goes from here to a running,
 documented service in about twenty minutes.

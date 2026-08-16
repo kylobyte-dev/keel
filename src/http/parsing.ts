@@ -45,7 +45,7 @@ export const BigIntIdSchema = S.BigIntFromString.annotate({
  * // GET /users?filter={"role":"admin"}
  * export const UserQuerySchema = S.Struct({
  *   ...tableQueryFields,
- *   filter: S.optional(parseJsonParam(UserFilterSchema)),
+ *   filter: S.optionalKey(parseJsonParam(UserFilterSchema)),
  * });
  * ```
  */
