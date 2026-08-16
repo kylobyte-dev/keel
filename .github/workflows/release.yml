@@ -14,10 +14,13 @@ name: Release
 #   branch main, tag latest   the stable line
 #   branch v4,   tag beta     the 0.2 prerelease
 #
-# Every input is a fixed list. `tag` in particular is not optional cosmetics:
-# npm ignores the prerelease part of a version when choosing a dist-tag, so
-# publishing 0.2.0-beta.0 without `--tag beta` would make it the default install
-# for everyone.
+# Every input is a fixed list, and `tag` carries two jobs: it is the npm
+# dist-tag, and for a pre* bump it is also the prerelease identifier. So `beta`
+# means 0.2.0-beta.N published under `beta`, and the two can never disagree.
+#
+# `tag` is not optional cosmetics: npm ignores the prerelease part of a version
+# when choosing a dist-tag, so publishing 0.2.0-beta.0 without `--tag beta`
+# would make it the default install for everyone.
 #
 # There is no npm token anywhere. The package is published through a trusted
 # publisher, whose configuration on npm must match what this workflow claims:
@@ -46,23 +49,15 @@ on:
           - prepatch
           - preminor
           - premajor
-      preid:
-        description: "Prerelease identifier, for the pre* bumps — ignored by the others"
-        type: choice
-        default: beta
-        required: true
-        options:
-          - beta
-          - rc
       tag:
-        description: "npm dist-tag to publish under"
+        description: "npm dist-tag — also the prerelease identifier for the pre* bumps"
         type: choice
         default: latest
         required: true
         options:
           - latest
           - beta
-          - next
+          - rc
 
 concurrency:
   group: release
@@ -115,6 +110,15 @@ jobs:
       - name: Point npm at the registry
         run: echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
 
+      # A pre* bump always produces a prerelease, so pairing one with `latest` is
+      # wrong whatever the numbers turn out to be. Caught here, before anything
+      # runs, rather than after the bump has already invented a version.
+      - name: Reject a prerelease bump aimed at latest
+        if: startsWith(inputs.bump, 'pre') && inputs.tag == 'latest'
+        run: |
+          echo "::error::A '${{ inputs.bump }}' bump produces a prerelease, which cannot go to 'latest' — it would become the default install. Pick tag=beta or tag=rc."
+          exit 1
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm check-types
@@ -128,21 +132,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          npm version "${{ inputs.bump }}" --preid "${{ inputs.preid }}" --message "chore: release v%s"
+          npm version "${{ inputs.bump }}" --preid "${{ inputs.tag }}" --message "chore: release v%s"
           echo "released=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # The one mistake that cannot be undone by releasing again: a prerelease
-      # landing on `latest` silently becomes what everyone installs, and moving
-      # a dist-tag back does not un-install it from the lockfiles that caught it.
-      # The dropdown cannot rule this out on its own — every `bump` option is
-      # legal under some tag — so it is checked here, after the bump has resolved
-      # the keyword into a version.
+      # Belt and braces: the step above rules this out from the inputs, but that
+      # relies on `pre*` always yielding a prerelease. This one checks the version
+      # npm actually produced, because a prerelease landing on `latest` silently
+      # becomes what everyone installs, and moving a dist-tag back does not
+      # un-install it from the lockfiles that caught it.
       - name: Refuse to publish a prerelease as latest
         run: |
           version="${{ steps.bump.outputs.released }}"
           tag="${{ inputs.tag }}"
           if [[ "$version" == *-* && "$tag" == "latest" ]]; then
-            echo "::error::$version is a prerelease; publishing it as 'latest' would make it the default install. Re-run with tag=beta."
+            echo "::error::npm produced $version, a prerelease, for tag 'latest'. Publishing it would make it the default install. Re-run with tag=beta or tag=rc."
             exit 1
           fi
           if [[ "$version" != *-* && "$tag" != "latest" ]]; then
