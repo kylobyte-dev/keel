@@ -38,20 +38,25 @@ Two lines ship in parallel, under two npm dist-tags:
 | Install               | Version        | Effect | Drizzle         |
 | --------------------- | -------------- | ------ | --------------- |
 | `@kylobyte/keel`      | `0.1.x`        | 3.x    | `1.0.0-beta.22` |
-| `@kylobyte/keel@beta` | `0.2.0-beta.x` | 4.x rc | `1.0.0-rc.5`    |
+| `@kylobyte/keel@beta` | `0.3.0-beta.x` | 4.x rc | `1.0.0-rc.5`    |
 
 ```bash
 pnpm add @kylobyte/keel@beta
 ```
 
-`latest` stays on the Effect 3 line. The `0.2` line is an experiment: it tracks
+`latest` stays on the Effect 3 line. The beta line is an experiment: it tracks
 Effect 4 while Effect 4 is itself a release candidate, and its API may move
-between betas. **These docs describe the `0.2` line.**
+between betas. **These docs describe the beta line.**
+
+Install it by dist-tag rather than by number. A breaking change on a `0.x` line
+bumps the minor, so the beta series moves whole versions — `0.2.0-beta.0` to
+`0.3.0-beta.0` — rather than counting up the prerelease. Pinning an exact beta
+means pinning yourself out of the next one.
 
 Effect 4 moved its SQL layer into the core package, so `@effect/sql` is gone from
 the peers — only the driver, `@effect/sql-pg`, is still separate.
 
-### The 0.2 line needs exact prerelease peers
+### The beta line needs exact prerelease peers
 
 Both sides are pre-1.0 and the published dist-tags do not currently agree with
 each other:
