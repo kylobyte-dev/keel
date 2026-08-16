@@ -60,7 +60,10 @@
     "check-types": "tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run",
     "prepare": "rm -rf dist && tsc",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "docs:install": "pnpm --dir docs install",
+    "docs:dev": "pnpm --dir docs run dev",
+    "docs:build": "pnpm --dir docs run build"
   },
   "peerDependencies": {
     "@effect/sql": "0.48.6",

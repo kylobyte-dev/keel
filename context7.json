@@ -1,0 +1,17 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "keel",
+  "description": "Opinionated Fastify 5 + Effect backend framework: Effect Schema as type provider, controllers as Effect services, tagged errors mapped to HTTP, Pino↔Effect logging, SSE.",
+  "folders": ["docs/src/content/docs"],
+  "excludeFolders": ["dist", "node_modules", "docs/dist", "docs/.astro"],
+  "excludeFiles": [],
+  "rules": [
+    "Keel is glue only: it has no business logic and no application runtime. The app builds its own Effect ManagedRuntime and hands it to keel.",
+    "Validation uses Effect Schema as the Fastify type provider. Never reach for Zod or JSON Schema by hand in a keel app.",
+    "Controllers are built with controller() and return an Effect, never a raw Fastify reply. Response shape is expressed with the Http* result types (HttpCreated, HttpNoContent, ...).",
+    "Failures are tagged errors mapped to HTTP statuses, so fail the Effect instead of throwing.",
+    "effect, fastify, pino, pino-pretty and the @fastify/* plugins are peer dependencies and must stay that way: two instances of effect in one process break Context.Tag identity.",
+    "Import from the entry point that matches the surface being used: @kylobyte/keel (http + runtime), /http, /runtime, /sse, /sql, /openapi.",
+    "The /sql, /openapi and helmet peers are optional, and the /sql ones are pinned to exact versions because Drizzle's Effect driver is prerelease and moves with @effect/sql."
+  ]
+}

@@ -1,0 +1,61 @@
+name: Docs
+
+# The site is a separate project under docs/, with its own lockfile: Astro and
+# its dependency tree never enter the published package's lockfile.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A deploy that is already running is left alone; a superseded build is not.
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # The pages were carved out of one README, so the build also validates
+      # every internal link and fails on a cross-reference that no longer lands.
+      - run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v3
+        # Only what gets deployed needs uploading; on a pull request the build
+        # above is the whole point.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          path: docs/dist
+
+  deploy:
+    name: deploy
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      # Publishes the artifact to Pages, and mints the token that proves it.
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
