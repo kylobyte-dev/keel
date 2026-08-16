@@ -2,11 +2,26 @@
 
 Guidance for Claude Code when working in this repository.
 
+## English everywhere
+
+**Everything written into this repository is in English.** No exceptions, whatever
+language the conversation is happening in — the discussion can be in any language, the
+artefacts cannot. That covers:
+
+- commit messages, branch names, pull request titles and descriptions;
+- code comments and JSDoc;
+- identifiers — variables, functions, types, files, directories;
+- log messages, error messages and their `message` fields, tagged error names;
+- tests and their descriptions (`describe`/`it` strings);
+- documentation under `docs/`, the `README.md`, and the frontmatter in both;
+- issue templates, workflow names and step names under `.github/`.
+
+Some of the existing history and a comment here and there are in Italian; that is
+legacy, not a precedent. Translate what you touch, and never add more.
+
 ## Commits
 
-**Always write commit messages in English, following Conventional Commits.** This
-applies to the subject and the body alike, and to pull request titles and descriptions —
-no exceptions, whatever language the conversation is happening in.
+Conventional Commits, in English like everything else.
 
 ```
 <type>(<optional scope>): <short imperative summary>
@@ -29,8 +44,6 @@ feat(sql): add an optional id helper for snowflake ids
 fix(http): keep local $defs inlined so the type provider resolves them
 docs: document the SSE handler factory
 ```
-
-Some of the existing history is in Italian; that is legacy, not a precedent to follow.
 
 ## Commands
 

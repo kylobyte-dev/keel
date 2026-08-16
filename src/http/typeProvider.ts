@@ -75,13 +75,12 @@ export type FastifyPluginAsyncEffect<
 > = FastifyPluginAsync<Options, Server, EffectTypeProvider>;
 
 /**
- * `JSONSchema.make` mette le definizioni riusabili in un blocco `$defs` locale e le
- * referenzia con `$ref: "#/$defs/Name"`. Ma quel ref si risolve alla **root del
- * documento** OpenAPI, dove `$defs` non esiste (sta annidato nello schema di rotta):
- * Scalar lo tollera, ma bundler severi (openapi-typescript) falliscono. Qui
- * dereferenziamo i `$defs` locali inline, così ogni schema è self-contained.
- * Uno schema ricorsivo verrebbe lasciato intatto (guardia `seen`) invece di andare
- * in loop.
+ * `JSONSchema.make` puts reusable definitions in a local `$defs` block and references
+ * them with `$ref: "#/$defs/Name"`. But that ref resolves against the **root of the
+ * OpenAPI document**, where `$defs` does not exist (it sits nested inside the route
+ * schema): Scalar tolerates it, strict bundlers (openapi-typescript) fail. So we
+ * dereference the local `$defs` inline here, leaving every schema self-contained.
+ * A recursive schema is left intact (the `seen` guard) rather than looping forever.
  */
 const inlineLocalDefs = (root: Record<string, any>): Record<string, any> => {
   const defs: Record<string, any> = root?.$defs ?? {};
@@ -95,7 +94,7 @@ const inlineLocalDefs = (root: Record<string, any>): Record<string, any> => {
       if (typeof ref === "string" && ref.startsWith("#/$defs/")) {
         const name = ref.slice("#/$defs/".length);
         if (seen.has(name) || !(name in defs)) {
-          return node; // ciclo o ref esterno: lascia com'è
+          return node; // cycle or external ref: leave it as it is
         }
         return resolve(defs[name], new Set(seen).add(name));
       }
