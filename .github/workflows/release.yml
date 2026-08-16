@@ -4,10 +4,19 @@ name: Release
 # publishes, and only then writes the commit and the tag back to the branch it
 # released from.
 #
+# The branch is the one picked in the "Run workflow" dropdown: it is what gets
+# checked out, and what the release commit and tag are pushed back to. That also
+# means the workflow file that runs is the one on that branch, so the two lines
+# can diverge without surprising each other.
+#
 # Two releases run in parallel off this one workflow:
 #
-#   ref=main, tag=latest   the stable line       (Effect 3)
-#   ref=v4,   tag=beta     the 0.2 prerelease    (Effect 4)
+#   branch main, tag latest   the stable line
+#   branch v4,   tag beta     the 0.2 prerelease
+#
+# Every input is a fixed list, and `tag` carries two jobs: it is the npm
+# dist-tag, and for a pre* bump it is also the prerelease identifier. So `beta`
+# means 0.2.0-beta.N published under `beta`, and the two can never disagree.
 #
 # `tag` is not optional cosmetics: npm ignores the prerelease part of a version
 # when choosing a dist-tag, so publishing 0.2.0-beta.0 without `--tag beta`
@@ -28,20 +37,27 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "patch | minor | major | prerelease, or an explicit version like 1.2.3"
-        type: string
+        description: "How to move the version"
+        type: choice
         default: patch
         required: true
-      ref:
-        description: "branch to release from — the release commit and tag go back to it"
-        type: string
-        default: main
-        required: true
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+          - prepatch
+          - preminor
+          - premajor
       tag:
-        description: "npm dist-tag: latest for the stable line, beta for a prerelease"
-        type: string
+        description: "npm dist-tag — also the prerelease identifier for the pre* bumps"
+        type: choice
         default: latest
         required: true
+        options:
+          - latest
+          - beta
+          - rc
 
 concurrency:
   group: release
@@ -56,9 +72,9 @@ jobs:
       # Mints the OIDC token npm exchanges with the registry, and signs provenance.
       id-token: write
     steps:
+      # No `ref:` — the default is the branch picked in the dropdown, which is
+      # exactly what this release is for.
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -94,6 +110,15 @@ jobs:
       - name: Point npm at the registry
         run: echo "registry=https://registry.npmjs.org/" > "$HOME/.npmrc"
 
+      # A pre* bump always produces a prerelease, so pairing one with `latest` is
+      # wrong whatever the numbers turn out to be. Caught here, before anything
+      # runs, rather than after the bump has already invented a version.
+      - name: Reject a prerelease bump aimed at latest
+        if: startsWith(inputs.bump, 'pre') && inputs.tag == 'latest'
+        run: |
+          echo "::error::A '${{ inputs.bump }}' bump produces a prerelease, which cannot go to 'latest' — it would become the default install. Pick tag=beta or tag=rc."
+          exit 1
+
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm check-types
@@ -107,20 +132,20 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          npm version "${{ inputs.bump }}" --message "chore: release v%s"
+          npm version "${{ inputs.bump }}" --preid "${{ inputs.tag }}" --message "chore: release v%s"
           echo "released=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
-      # The one mistake that cannot be undone by releasing again: a prerelease
-      # landing on `latest` silently becomes what everyone installs, and moving
-      # a dist-tag back does not un-install it from the lockfiles that caught it.
-      # Checked after the bump, because `bump` may be a keyword rather than the
-      # literal version.
+      # Belt and braces: the step above rules this out from the inputs, but that
+      # relies on `pre*` always yielding a prerelease. This one checks the version
+      # npm actually produced, because a prerelease landing on `latest` silently
+      # becomes what everyone installs, and moving a dist-tag back does not
+      # un-install it from the lockfiles that caught it.
       - name: Refuse to publish a prerelease as latest
         run: |
           version="${{ steps.bump.outputs.released }}"
           tag="${{ inputs.tag }}"
           if [[ "$version" == *-* && "$tag" == "latest" ]]; then
-            echo "::error::$version is a prerelease; publishing it as 'latest' would make it the default install. Re-run with tag=beta."
+            echo "::error::npm produced $version, a prerelease, for tag 'latest'. Publishing it would make it the default install. Re-run with tag=beta or tag=rc."
             exit 1
           fi
           if [[ "$version" != *-* && "$tag" != "latest" ]]; then
@@ -134,9 +159,9 @@ jobs:
       # immutable: push the release commit and its tag by hand rather than
       # releasing again.
       - name: Push the release commit and its tag
-        run: git push --follow-tags origin "HEAD:${{ inputs.ref }}"
+        run: git push --follow-tags origin "HEAD:${{ github.ref_name }}"
 
       - name: Summary
         run: |
-          echo "Published \`@kylobyte/keel@${{ steps.bump.outputs.released }}\` from \`${{ inputs.ref }}\` under the \`${{ inputs.tag }}\` tag" >> "$GITHUB_STEP_SUMMARY"
+          echo "Published \`@kylobyte/keel@${{ steps.bump.outputs.released }}\` from \`${{ github.ref_name }}\` under the \`${{ inputs.tag }}\` tag" >> "$GITHUB_STEP_SUMMARY"
           echo "https://www.npmjs.com/package/@kylobyte/keel/v/${{ steps.bump.outputs.released }}" >> "$GITHUB_STEP_SUMMARY"
