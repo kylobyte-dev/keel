@@ -30,3 +30,6 @@ The `/sql` peers are pinned to exact versions rather than ranges. Drizzle's Effe
 driver (`drizzle-orm/effect-postgres`) is prerelease and moves with `@effect/sql`,
 which moves fast itself: a range would let a combination keel has never compiled
 against resolve into your app. Bumping them is a keel release.
+
+Installed? [Your first app](/keel/tutorials/first-app/) goes from here to a running,
+documented service in about twenty minutes.

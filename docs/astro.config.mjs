@@ -39,10 +39,22 @@ export default defineConfig({
           items: [
             { label: "Install", slug: "install" },
             { label: "The shape of an app", slug: "app-shape" },
+            { label: "Architecture", slug: "architecture" },
           ],
         },
         {
-          label: "Guides",
+          label: "Step by step",
+          items: [
+            { label: "Your first app", slug: "tutorials/first-app" },
+            { label: "Adding a feature", slug: "tutorials/adding-a-feature" },
+            {
+              label: "Adding authentication",
+              slug: "tutorials/authentication",
+            },
+          ],
+        },
+        {
+          label: "Reference",
           items: [
             { label: "Bootstrap", slug: "bootstrap" },
             { label: "Controllers", slug: "controllers" },
@@ -68,6 +80,8 @@ export default defineConfig({
           label: "Project",
           items: [
             { label: "Testing", slug: "testing" },
+            { label: "Troubleshooting", slug: "troubleshooting" },
+            { label: "Design decisions", slug: "design-decisions" },
             { label: "Development", slug: "contributing" },
           ],
         },

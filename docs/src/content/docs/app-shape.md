@@ -7,6 +7,10 @@ Keel does not impose a directory layout, but everything below assumes the one it
 extracted from: global plugins in one place, and a folder per feature holding its
 routes, controllers, services and schemas side by side.
 
+This page is the map. [Architecture](/keel/architecture/) is the same picture from the
+inside — what each part of keel does and how a request actually flows through it — and
+[Your first app](/keel/tutorials/first-app/) builds this layout one file at a time.
+
 ```
 src/
 ├── index.ts                        # Fastify instance, listen, graceful shutdown
@@ -51,4 +55,10 @@ A request goes through:
 Headers are deliberately absent from step 3: a controller only sees validated input.
 Anything read off the raw request — a token, a signature, an `Accept-Language` — is
 turned into a service by the router's request provider, so the controller stays a
-function of its input and its dependencies.
+function of its input and its dependencies. That constraint is
+[load-bearing](/keel/design-decisions/#why-cant-a-controller-see-the-request), not
+stylistic.
+
+The step-by-step version of each of those five stages, with the piece of keel
+responsible for it, is in
+[the lifecycle of a request](/keel/architecture/#the-lifecycle-of-a-request).

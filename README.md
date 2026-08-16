@@ -36,6 +36,18 @@ pinned to exact versions, is covered in
 
 ## Guide
 
+Start here:
+
+| Page                                                                                   | What's in it                                                                    |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [Your first app](https://kylobyte-dev.github.io/keel/tutorials/first-app/)             | Empty directory → running, documented, tested service, one file at a time       |
+| [Adding a feature](https://kylobyte-dev.github.io/keel/tutorials/adding-a-feature/)    | A complete module against Postgres: table, repository, queries, routes, tests   |
+| [Adding authentication](https://kylobyte-dev.github.io/keel/tutorials/authentication/) | A verification hook, the caller as a service, and 401s the document knows about |
+| [Architecture](https://kylobyte-dev.github.io/keel/architecture/)                      | What each part does, the request lifecycle, and the type-level machinery        |
+| [Design decisions](https://kylobyte-dev.github.io/keel/design-decisions/)              | Why it is built this way, and what was deliberately left out                    |
+
+Reference:
+
 | Page                                                                    | What's in it                                                       |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [The shape of an app](https://kylobyte-dev.github.io/keel/app-shape/)   | How the pieces fit together before writing any code                |
@@ -49,6 +61,7 @@ pinned to exact versions, is covered in
 | [SSE](https://kylobyte-dev.github.io/keel/sse/)                         | Server-sent events over an Effect stream                           |
 | [SQL](https://kylobyte-dev.github.io/keel/sql/)                         | Drizzle over `@effect/sql`: ids, repositories, filters, migrations |
 | [Testing](https://kylobyte-dev.github.io/keel/testing/)                 | Unit-testing controllers, and driving routes through `inject`      |
+| [Troubleshooting](https://kylobyte-dev.github.io/keel/troubleshooting/) | Symptom index: the compile errors and runtime surprises, explained |
 
 ## Development
 
