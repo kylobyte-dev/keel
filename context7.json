@@ -3,8 +3,6 @@
   "projectTitle": "keel",
   "description": "Opinionated Fastify 5 + Effect backend framework: Effect Schema as type provider, controllers as Effect services, tagged errors mapped to HTTP, Pino↔Effect logging, SSE.",
   "folders": ["docs/src/content/docs"],
-  "excludeFolders": ["dist", "node_modules", "docs/dist", "docs/.astro"],
-  "excludeFiles": [],
   "rules": [
     "Keel is glue only: it has no business logic and no application runtime. The app builds its own Effect ManagedRuntime and hands it to keel.",
     "Validation uses Effect Schema as the Fastify type provider. Never reach for Zod or JSON Schema by hand in a keel app.",
