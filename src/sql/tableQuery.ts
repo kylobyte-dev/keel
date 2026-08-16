@@ -11,23 +11,29 @@ export const MAX_PAGE_SIZE = 100;
  * Flat schema for standard table query params — validated at the HTTP boundary.
  * Spread into route-specific query schemas and extend with per-resource filters.
  *
+ * Every field is `S.optionalKey` rather than `S.optional`. The two decode a
+ * query string identically — Fastify simply omits an absent parameter — but
+ * `S.optional` also admits an explicit `undefined`, and the JSON Schema
+ * generator renders that as a `null` branch the decoder then rejects. The
+ * document would advertise `?sort=null` as valid and the request would 400.
+ *
  * @example
  * ```ts
  * export const UserQuerySchema = S.Struct({
  *   ...tableQueryFields,
- *   sort: S.optional(S.Literal("name", "email", "createdAt")),
- *   filter: S.optional(parseJsonParam(UserFilterSchema)),
+ *   sort: S.optionalKey(S.Literals(["name", "email", "createdAt"])),
+ *   filter: S.optionalKey(parseJsonParam(UserFilterSchema)),
  * });
  * ```
  */
 export const tableQueryFields = {
-  sort: S.optional(S.String),
-  dir: S.optional(S.Literals(["asc", "desc"])),
-  q: S.optional(S.String),
-  page: S.optional(S.NumberFromString.pipe(S.check(S.isGreaterThan(0)))).pipe(
-    S.withDecodingDefaultType(Effect.succeed(DEFAULT_PAGE)),
-  ),
-  pageSize: S.optional(
+  sort: S.optionalKey(S.String),
+  dir: S.optionalKey(S.Literals(["asc", "desc"])),
+  q: S.optionalKey(S.String),
+  page: S.optionalKey(
+    S.NumberFromString.pipe(S.check(S.isGreaterThan(0))),
+  ).pipe(S.withDecodingDefaultType(Effect.succeed(DEFAULT_PAGE))),
+  pageSize: S.optionalKey(
     S.NumberFromString.pipe(
       S.check(S.isBetween({ minimum: 0, maximum: MAX_PAGE_SIZE })),
     ),

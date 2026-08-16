@@ -46,7 +46,7 @@ type FilterType<D extends FilterDef> = {
  *
  * export const UserQuerySchema = S.Struct({
  *   ...tableQueryFields,
- *   filter: S.optional(parseJsonParam(userFilter.schema)),
+ *   filter: S.optionalKey(parseJsonParam(userFilter.schema)),
  * });
  * ```
  */
@@ -55,7 +55,7 @@ export const defineFilter = <D extends FilterDef>(def: D) => {
     Object.fromEntries(
       Object.entries(def).map(([key, { schema: fieldSchema }]) => [
         key,
-        S.optional(fieldSchema),
+        S.optionalKey(fieldSchema),
       ]),
     ),
   ) as unknown as S.Codec<FilterType<D>>;

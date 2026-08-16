@@ -141,6 +141,34 @@ failure whatever combinator produced it. No flattening workaround is needed on t
 line.
 :::
 
+### A parameter documented as nullable is rejected as null
+
+**Why** the field is `S.optional(T)`. That means "absent or `undefined`", and the
+JSON Schema generator renders the `undefined` as a `null` branch — so the
+document says `anyOf: [T, null]` while the decoder answers 400 to an actual
+`null`.
+
+**Fix** use `S.optionalKey(T)`, which means "the key may be absent" and generates
+`T` alone. Over HTTP that is the only case there is: JSON carries no `undefined`
+and an omitted query parameter is an omitted key. See [Schemas at the
+boundary](/keel/schemas/#two-effect-4-defaults-that-leak-onto-the-wire).
+
+A field combining `S.optionalKey` with `S.withDecodingDefaultType` keeps the
+`null` branch regardless — the default is what introduces it. `page` and
+`pageSize` in `tableQueryFields` are in that position; they decode correctly and
+document one branch too many.
+
+### A numeric field is documented as `number | "NaN" | "Infinity" | "-Infinity"`
+
+**Why** `S.Number` accepts `NaN` and `Infinity`, which JSON cannot represent, so
+its encoded form is a union with those three strings. The union then propagates
+into every client generated from the document — and the decoder rejects the
+strings anyway.
+
+**Fix** use `S.Finite` for anything that crosses the HTTP boundary. It is a plain
+`{ "type": "number" }` and it rejects the non-finite values instead of letting a
+`NaN` reach a response, where `JSON.stringify` would quietly turn it into `null`.
+
 ### The 400 has no `details`
 
 **Why** `errorHandlerPlugin` sends them, and the route's `400` schema drops them:
@@ -274,7 +302,7 @@ for `{ like }`; free-text `q` conditions you write yourself do not.
 the request failing.
 
 **Fix** add the column to the map. To reject unknown values instead, narrow the schema:
-`sort: S.optional(S.Literals(["name", "createdAt"]))`.
+`sort: S.optionalKey(S.Literals(["name", "createdAt"]))`.
 
 ### `drizzle-orm` types explode after an install
 

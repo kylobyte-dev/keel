@@ -16,8 +16,8 @@ const userFilter = defineFilter({
 
 export const UserQuerySchema = S.Struct({
   ...tableQueryFields, // sort, dir, q, page, pageSize
-  sort: S.optional(S.Literals(["name", "email", "createdAt"])),
-  filter: S.optional(parseJsonParam(userFilter.schema)),
+  sort: S.optionalKey(S.Literals(["name", "email", "createdAt"])),
+  filter: S.optionalKey(parseJsonParam(userFilter.schema)),
 });
 export type UserQuery = S.Schema.Type<typeof UserQuerySchema>;
 ```
