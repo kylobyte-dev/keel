@@ -1,0 +1,117 @@
+name: Docs
+
+# The site is a separate project under docs/, with its own lockfile: Astro and
+# its dependency tree never enter the published package's lockfile.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  # A deploy that is already running is left alone; a superseded build is not.
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: docs/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      # The pages were carved out of one README, so the build also validates
+      # every internal link and fails on a cross-reference that no longer lands.
+      - run: pnpm build
+
+      - uses: actions/upload-pages-artifact@v3
+        # Only what gets deployed needs uploading; on a pull request the build
+        # above is the whole point.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          path: docs/dist
+
+  deploy:
+    name: deploy
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      # Publishes the artifact to Pages, and mints the token that proves it.
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  # Context7 re-parses a library on request, but only once its copy is older
+  # than a threshold set by popularity — 45 days for everything outside the top
+  # 5,000, and only if somebody asked for it in the meantime. Left alone, keel's
+  # documentation would sit stale for weeks after a merge. Context7 reads the
+  # repository rather than the built site, so this does not wait on the deploy.
+  refresh:
+    name: refresh context7
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Context7 to re-parse the repository
+        env:
+          CONTEXT7_API_KEY: ${{ secrets.CONTEXT7_API_KEY }}
+        run: |
+          if [ -z "$CONTEXT7_API_KEY" ]; then
+            echo "::notice::CONTEXT7_API_KEY is not set, skipping the refresh."
+            exit 0
+          fi
+
+          # `|| status=000` keeps a connection failure out of `bash -e`, so it
+          # lands in the transient branch below instead of killing the job.
+          body="$(mktemp)"
+          status="$(
+            curl --silent --show-error --output "$body" --write-out '%{http_code}' \
+              --retry 2 --retry-connrefused --max-time 30 \
+              --request POST https://context7.com/api/v1/refresh \
+              --header "Authorization: Bearer $CONTEXT7_API_KEY" \
+              --header 'Content-Type: application/json' \
+              --data '{"libraryName":"/kylobyte-dev/keel"}'
+          )" || status="000"
+
+          # The API answers `{ "error": ..., "message": ... }` on every failure,
+          # and the message is the only thing that says which one it was.
+          echo "HTTP $status"
+          cat "$body"
+          echo
+
+          case "$status" in
+            200)
+              echo "::notice::Context7 refresh started."
+              ;;
+            # A rate limit, an outage on their side, or an unreachable host
+            # resolves itself: the library still gets picked up by the
+            # automatic cycle.
+            429 | 5?? | 000)
+              echo "::warning::Refresh not started (HTTP $status), leaving it to the automatic cycle."
+              ;;
+            # 401 means the key is wrong, 404 means the library id is. Neither
+            # fixes itself, so neither passes quietly.
+            *)
+              echo "::error::Refresh rejected (HTTP $status)."
+              exit 1
+              ;;
+          esac
